@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-zinc-950 text-slate-100 font-sans overflow-hidden h-screen;
+}
