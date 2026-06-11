@@ -7,6 +7,7 @@ import Compras from './components/Compras';
 import Reuniones from './components/Reuniones';
 import PendientesCasa from './components/PendientesCasa';
 import ReunionesCasa from './components/ReunionesCasa';
+import RegistroRapido from './components/RegistroRapido'; // <--- Pon este import arriba con los demás
 
 import { Lock, LogOut } from 'lucide-react'; // Iconos de seguridad
 
@@ -26,6 +27,11 @@ export default function App() {
       setAutenticado(true);
     }
   }, []);
+
+// INTERCEPTOR DE RUTA NATIVA (Colócalo antes del chequeo de autenticación)
+  if (window.location.pathname === '/registro') {
+    return <RegistroRapido />;
+  }
 
   const manejarLogin = (e) => {
     e.preventDefault();
@@ -88,60 +94,138 @@ export default function App() {
   }
 
   // --- VISTA 2: APLICACIÓN COMPLETA DESBLOQUEADA ---
-  return (
-    <div className="bg-[#0f172a] text-[#f8fafc] flex flex-col md:flex-row h-screen overflow-hidden font-sans">
-      
-      {/* MENÚ LATERAL UNIFICADO */}
-      <div className="w-full md:w-64 bg-[#1e293b] shadow-2xl border-b md:border-b-0 md:border-r border-[#334155] flex-shrink-0 flex flex-row md:flex-col justify-between items-center md:items-stretch p-4 md:p-0">
-        
-        <div className="flex md:flex-col items-center md:items-stretch justify-between w-full md:w-auto overflow-hidden">
-          <div className="p-2 md:p-6 font-black text-[#38bdf8] italic uppercase tracking-tighter text-base md:text-xl border-b-0 md:border-b border-[#334155]">
-            Santo Tomás
-          </div>
-          
-          {/* Navegación con Scroll Horizontal en móvil, bloque vertical en PC */}
-          <nav className="mt-0 md:mt-4 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar px-2 max-w-[70%] md:max-w-none text-left"> 
-            
-            {/* SECCIÓN TRABAJO / HOSPITAL */}
-            <div className="hidden md:block text-[9px] font-black text-[#475569] uppercase tracking-widest px-3 mb-1 mt-2">
-              Hospital Operations
-            </div>
-            <button onClick={() => setSeccionActiva('kanban')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'kanban' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8]'}`}>Kanban</button>
-            <button onClick={() => setSeccionActiva('equipos')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'equipos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8]'}`}>Equipos</button>
-            <button onClick={() => setSeccionActiva('gases')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8]'}`}>Gases</button>
-            <button onClick={() => setSeccionActiva('reuniones')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'reuniones' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8]'}`}>Juntas Hospital</button>
 
-            {/* SECCIÓN PERSONAL / CASA */}
-            <div className="hidden md:block text-[9px] font-black text-[#475569] uppercase tracking-widest px-3 mb-1 mt-6">
-              Personal & Home
+  return (
+    <div className="bg-[#0f172a] text-[#f8fafc] flex h-screen overflow-hidden font-sans">
+      
+      {/* MENÚ LATERAL */}
+      <div className="w-64 bg-[#1e293b] shadow-2xl border-r border-[#334155] flex-shrink-0 flex flex-col justify-between">
+        <div>
+          <div className="p-6 font-black text-[#38bdf8] border-b border-[#334155] italic uppercase tracking-tighter text-xl">
+            Control Panel
+          </div>
+
+
+
+          <nav className="mt-4 space-y-1 px-2">
+
+            {/* SEPARADOR / GRUPO: PERSONAL CASA #475569*/}
+            <div className="text-[11px] font-black text-[#38bdf8] uppercase tracking-widest px-3 mb-1 mt-6">
+              Trabajo
             </div>
-            <button onClick={() => setSeccionActiva('casa_pendientes')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'casa_pendientes' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' : 'text-[#94a3b8]'}`}>🏠 Tareas Casa</button>
-            <button onClick={() => setSeccionActiva('casa_reuniones')} className={`flex-shrink-0 px-3 py-2 md:p-2.5 rounded-xl font-bold uppercase text-[10px] ${seccionActiva === 'casa_reuniones' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' : 'text-[#94a3b8]'}`}>📅 Citas Casa</button>
-          
+            
+
+            {/* GRUPO: HOSPITAL */}
+            <button 
+              onClick={() => setSeccionActiva('kanban')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'kanban' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Kanban
+            </button>
+            <button 
+              onClick={() => setSeccionActiva('equipos')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'equipos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Disponibilidad
+            </button>
+            <button 
+              onClick={() => setSeccionActiva('gases')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Central de Gases
+            </button>
+            <button 
+              onClick={() => setSeccionActiva('proyectos')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'proyectos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Proyectos
+            </button>
+            <button 
+              onClick={() => setSeccionActiva('compras')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'compras' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Compras
+            </button>
+            <button 
+              onClick={() => setSeccionActiva('reuniones')} 
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'reuniones' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Future LOG
+            </button>
+
+            {/* SEPARADOR / GRUPO: PERSONAL CASA #475569*/}
+            <div className="text-[11px] font-black text-amber-400 uppercase tracking-widest px-3 mb-1 mt-6">
+              Familia
+            </div>
+
+            {/* Kanban Casa */}
+            <button  
+              onClick={() => setSeccionActiva('casa_pendientes')}  
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'casa_pendientes' 
+                  ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
+                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Kanban Casa
+            </button>
+
+            {/* Eventos Casa */}
+            <button  
+              onClick={() => setSeccionActiva('casa_reuniones')}  
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'casa_reuniones' 
+                  ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
+                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Future LOG
+            </button>
           </nav>
         </div>
 
-        {/* Zona inferior del menú */}
-        <div className="hidden md:flex p-4 border-t border-[#334155] flex-col gap-2">
-          <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest">BIOMÉDICA v2.0</div>
+        {/* Zona inferior del menú: Botón de Salida Segura */}
+        <div className="p-4 border-t border-[#334155] flex flex-col gap-2">
+          <button 
+            onClick={cerrarSesion}
+            className="w-full flex items-center justify-center gap-2 p-2.5 text-[10px] font-black uppercase text-rose-400 bg-rose-950/20 border border-rose-900/30 rounded-xl hover:bg-rose-950/50 hover:text-rose-300 transition-all cursor-pointer tracking-wider"
+          >
+            <LogOut className="w-3.5 h-3.5" /> salir
+          </button>
+          <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
+            BIOMÉDICA v2.2
+          </div>
         </div>
       </div>
 
-      {/* CONTENEDOR DE TRABAJO DINÁMICO */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#0f172a]">
+      {/* CONTENEDOR DE TRABAJO */}
+      <main className="flex-1 overflow-y-auto p-8 bg-[#0f172a]">
         <div id="contenedor-principal">
-          {/* Vistas del Hospital */}
+          {/* Módulos Hospital */}
           {seccionActiva === 'kanban' && <Kanban />}
           {seccionActiva === 'equipos' && <Equipos />}
           {seccionActiva === 'gases' && <Gases />}
+          {seccionActiva === 'proyectos' && <Proyectos />}
+          {seccionActiva === 'compras' && <Compras />}
           {seccionActiva === 'reuniones' && <Reuniones />}
-          
-          {/* Vistas de la Casa */}
+
+          {/* Módulos Casa */}
           {seccionActiva === 'casa_pendientes' && <PendientesCasa />}
           {seccionActiva === 'casa_reuniones' && <ReunionesCasa />}
         </div>
       </main>
-
     </div>
   );
 }

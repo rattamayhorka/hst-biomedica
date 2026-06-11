@@ -136,15 +136,15 @@ export default function Reuniones() {
       {/* Encabezado */}
       <div className="mb-8 border-b border-zinc-800 pb-4 flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-black text-blue-400 tracking-tighter uppercase italic">Agenda de Reuniones</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Agrupado por Jornada | Santo Tomás</p>
+          <h2 className="text-2xl font-black text-blue-400 tracking-tighter uppercase italic">Future LOG</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Cronograma de eventos - Trabajo</p>
         </div>
         <div className="flex gap-4">
           <button 
             onClick={() => setModalAbierto(true)} 
             className="bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 rounded-lg shadow-lg flex items-center text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
           >
-            Nueva Reunión
+            Nuevo evento
           </button>
           
           <div className={`px-4 py-2 rounded-lg shadow-sm text-xs font-black uppercase italic tracking-tighter border ${
