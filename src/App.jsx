@@ -7,9 +7,10 @@ import Compras from './components/Compras';
 import Reuniones from './components/Reuniones';
 import PendientesCasa from './components/PendientesCasa';
 import ReunionesCasa from './components/ReunionesCasa';
-import RegistroRapido from './components/RegistroRapido'; // <--- Pon este import arriba con los demás
+import RegistroRapido from './components/RegistroRapido';
+import GestionProyectos from './components/GestionProyectos';
 
-import { Lock, LogOut } from 'lucide-react'; // Iconos de seguridad
+import { Lock, LogOut } from 'lucide-react'; //iconos de seguridad
 
 export default function App() {
   const [seccionActiva, setSeccionActiva] = useState('kanban');
@@ -156,6 +157,7 @@ export default function App() {
             >
               Compras
             </button>
+  
             <button 
               onClick={() => setSeccionActiva('reuniones')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
@@ -193,6 +195,16 @@ export default function App() {
             >
               Future LOG
             </button>
+
+            {/* INYECTA ESTE NUEVO BOTÓN AQUÍ */}
+            <button  
+              onClick={() => setSeccionActiva('proyectos_grafo')}  
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'proyectos_grafo' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              🗺️ Mapa de Proyectos
+            </button>
           </nav>
         </div>
 
@@ -205,7 +217,7 @@ export default function App() {
             <LogOut className="w-3.5 h-3.5" /> salir
           </button>
           <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            BIOMÉDICA v2.2
+            rattamayhorka v3.0
           </div>
         </div>
       </div>
@@ -220,6 +232,7 @@ export default function App() {
           {seccionActiva === 'proyectos' && <Proyectos />}
           {seccionActiva === 'compras' && <Compras />}
           {seccionActiva === 'reuniones' && <Reuniones />}
+          {seccionActiva === 'proyectos_grafo' && <GestionProyectos />}
 
           {/* Módulos Casa */}
           {seccionActiva === 'casa_pendientes' && <PendientesCasa />}

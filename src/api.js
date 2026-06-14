@@ -12,16 +12,27 @@ export const database = {
     }
   },
   
-  // Para mandar escrituras o modificaciones
+  // Para mandar escrituras o modificaciones (Calibrado Seguro)
   guardarDatos: async (accion, datos) => {
     try {
-      await fetch(API_URL, {
+      // Modificamos el cuerpo para que siempre envíe la propiedad 'datos' estructurada
+      // Si 'datos' ya es un objeto con subpropiedades, viaja limpio. Si no, lo empaqueta.
+      const cuerpoPeticion = {
+        accion: accion,
+        datos: datos && datos.datos ? datos.datos : datos
+      };
+
+      // Cambiamos a un POST estándar sin 'no-cors' usando text/plain para saltar el bloqueo de CORS de Google
+      const response = await fetch(API_URL, {
         method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion, ...datos })
+        mode: "cors", 
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(cuerpoPeticion)
       });
-      return true;
+      
+      if (!response.ok) return false;
+      const resJson = await response.json();
+      return resJson.resultado || true;
     } catch (error) {
       console.error("Error en ejecución POST:", error);
       return false;
