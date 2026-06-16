@@ -62,29 +62,34 @@ export default function Proyectos() {
   };
 
   const ejecutarActualizarEstatus = async (e) => {
-    e.preventDefault();
-    if (!acuerdoSeleccionado) return;
+  e.preventDefault();
+  if (!acuerdoSeleccionado) return;
 
-    setGuardando(true);
-    const idAcuerdo = acuerdoSeleccionado.Acciones; // Usamos el texto del acuerdo como identificador clave
+  setGuardando(true);
+  const idAcuerdo = acuerdoSeleccionado.Acciones; 
 
-    // 1. Actualización optimista inmediata en la interfaz
-    setAcuerdos(prev => prev.map(item => 
-      item.Acciones === idAcuerdo ? { ...item, Status: nuevoStatus } : item
-    ));
+  // 1. Actualización optimista inmediata en la interfaz
+  setAcuerdos(prev => prev.map(item => 
+    item.Acciones === idAcuerdo ? { ...item, Status: nuevoStatus } : item
+  ));
 
-    setMostrarModal(false);
-    setAcuerdoSeleccionado(null);
-    setGuardando(false);
-
-    // 2. Persistencia en segundo plano enviando los datos a tu Apps Script
-    // Nota: Reutilizamos la lógica del enrutador POST para modificar renglones
-    await database.guardarDatos('modificarTarea', { 
+  // 2. Persistencia: Pasamos el objeto plano directo. 
+  // Tu api.js se encargará de envolverlo en la propiedad 'datos'.
+  try {
+    await database.guardarDatos('modificarProyecto', { 
       tareaOriginal: idAcuerdo, 
       nuevaTarea: idAcuerdo, 
-      nuevoStatus: nuevoStatus 
+      nuevoStatus: nuevoStatus // Verifica que tu state 'nuevoStatus' tenga el valor del select
     });
-  };
+  } catch (error) {
+    console.error("Error al sincronizar con Sheets:", error);
+  }
+
+  // 3. Limpieza de estados después de disparar el fetch
+  setMostrarModal(false);
+  setAcuerdoSeleccionado(null);
+  setGuardando(false);
+};
 
   const obtenerCriticos = () => {
     return acuerdosFiltrados.filter(item => {

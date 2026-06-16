@@ -9,6 +9,7 @@ import PendientesCasa from './components/PendientesCasa';
 import ReunionesCasa from './components/ReunionesCasa';
 import RegistroRapido from './components/RegistroRapido';
 import GestionProyectos from './components/GestionProyectos';
+import GastosCasa from './components/GastosCasa';
 
 import { Lock, LogOut } from 'lucide-react'; //iconos de seguridad
 
@@ -131,7 +132,7 @@ export default function App() {
                 seccionActiva === 'equipos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
-              Disponibilidad
+              UP/DOWN Equipo Medico 
             </button>
             <button 
               onClick={() => setSeccionActiva('gases')} 
@@ -139,7 +140,7 @@ export default function App() {
                 seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
-              Central de Gases
+              Control de Gases
             </button>
             <button 
               onClick={() => setSeccionActiva('proyectos')} 
@@ -147,7 +148,7 @@ export default function App() {
                 seccionActiva === 'proyectos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
-              Proyectos
+              Compromisos
             </button>
             <button 
               onClick={() => setSeccionActiva('compras')} 
@@ -196,6 +197,26 @@ export default function App() {
               Future LOG
             </button>
 
+
+            <button  
+              onClick={() => setSeccionActiva('casa_gastos')}  
+              className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'casa_gastos' 
+                  ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
+                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              Finanzas 
+            </button>
+
+
+
+
+
+
+
+
+
             {/* INYECTA ESTE NUEVO BOTÓN AQUÍ */}
             <button  
               onClick={() => setSeccionActiva('proyectos_grafo')}  
@@ -208,8 +229,24 @@ export default function App() {
           </nav>
         </div>
 
+
+
         {/* Zona inferior del menú: Botón de Salida Segura */}
         <div className="p-4 border-t border-[#334155] flex flex-col gap-2">
+
+
+          {/* LINK MADRE A GOOGLE SHEETS */}
+          <a 
+            href="https://docs.google.com/spreadsheets/d/1zAkCvBUPxxGFY_-a6M92hhqzJXNM6TPGCVVuL-Pu19Q" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="w-full bg-zinc-900/60 hover:bg-zinc-800/80 text-slate-400 hover:text-violet-400 font-black px-4 py-2.5 rounded-xl border border-zinc-800/80 transition-all text-[10px] uppercase tracking-widest flex items-center justify-between shadow-md group cursor-pointer"
+          >
+            <span>Base de Datos</span>
+            <span class="text-zinc-600 group-hover:text-violet-500 transition-colors text-xs">↗</span>
+          </a>
+
+          {/* TU BOTÓN DE SALIR EXISTENTE */}
           <button 
             onClick={cerrarSesion}
             className="w-full flex items-center justify-center gap-2 p-2.5 text-[10px] font-black uppercase text-rose-400 bg-rose-950/20 border border-rose-900/30 rounded-xl hover:bg-rose-950/50 hover:text-rose-300 transition-all cursor-pointer tracking-wider"
@@ -217,7 +254,7 @@ export default function App() {
             <LogOut className="w-3.5 h-3.5" /> salir
           </button>
           <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v3.0
+            rattamayhorka v3.2.0
           </div>
         </div>
       </div>
@@ -237,6 +274,8 @@ export default function App() {
           {/* Módulos Casa */}
           {seccionActiva === 'casa_pendientes' && <PendientesCasa />}
           {seccionActiva === 'casa_reuniones' && <ReunionesCasa />}
+          {seccionActiva === 'casa_gastos' && <GastosCasa />}
+          
         </div>
       </main>
     </div>

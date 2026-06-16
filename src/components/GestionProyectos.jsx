@@ -87,16 +87,24 @@ function NodoGrupoExpandible(props) {
 // =========================================================
 // 2. NODO NOTA/META
 // =========================================================
+
 function NodoMetaAutonomo(props) {
   const { id, data, selected } = props;
-  let statusColor = 'border-zinc-800 bg-zinc-900/90 text-zinc-300';
-  if (data.status === 'En Progreso') statusColor = 'border-amber-500/40 bg-zinc-900/95 text-amber-200';
-  if (data.status === 'Completado') statusColor = 'border-emerald-500/40 bg-zinc-900/95 text-zinc-500 line-through';
+  
+  // Definición de colores de fondo y bordes según el estado de la nota
+  let statusColor = 'border-zinc-800 bg-zinc-900/90'; // Por Hacer (Default)
+  if (data.status === 'En Progreso') {
+    statusColor = 'border-amber-500/30 bg-amber-950/20'; 
+  }
+  if (data.status === 'Completado') {
+    statusColor = 'border-emerald-500/20 bg-emerald-950/20';
+  }
 
   const handleClass = "w-1.5 h-1.5 !bg-zinc-500 !opacity-0 group-hover/node:!opacity-100 transition-opacity !cursor-crosshair before:content-[''] before:absolute before:w-6 before:h-6 before:bg-transparent before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:z-[80]";
 
   return (
-    <div className={`border rounded-lg p-3 w-56 shadow-2xl font-sans text-left transition-all duration-200 relative group/node ${statusColor} ${selected ? 'ring-1 ring-zinc-500 border-zinc-500' : ''}`}>
+    <div className={`border rounded-lg p-3 w-56 shadow-2xl font-sans text-left transition-all duration-200 relative group/node ${statusColor} ${selected ? 'ring-1 ring-zinc-400 border-zinc-400 shadow-zinc-950/50' : ''}`}>
+      {/* Handles de Conexión */}
       <Handle type="target" position={Position.Top} id="t" className={`${handleClass} z-[60]`} />
       <Handle type="source" position={Position.Top} id="t-o" className={`${handleClass} z-[60]`} />
       
@@ -109,19 +117,14 @@ function NodoMetaAutonomo(props) {
       <Handle type="target" position={Position.Right} id="r" className={`${handleClass} z-[60]`} />
       <Handle type="source" position={Position.Right} id="r-o" className={`${handleClass} z-[60]`} />
 
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex-shrink-0">
-          {data.status === 'Completado' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-          {data.status === 'En Progreso' && <Activity className="w-4 h-4 text-amber-400 animate-pulse" />}
-          {data.status === 'Por Hacer' && <FileText className="w-4 h-4 text-zinc-500" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-normal text-[13px] leading-snug tracking-wide break-words select-none text-zinc-200">
-            {data.label}
-          </p>
-        </div>
+      {/* Contenido de la Nota sin iconos */}
+      <div className="min-w-0">
+        <p className={`font-normal text-[13px] leading-snug tracking-wide break-words select-none text-zinc-200 ${data.status === 'Completado' ? 'line-through opacity-50' : ''}`}>
+          {data.label}
+        </p>
       </div>
 
+      {/* Menú Flotante de Acciones */}
       <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 z-[50] nodrag pointer-events-none opacity-0 group-hover/node:opacity-100 transition-all duration-150 ease-out">
         <div className="bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl px-2 py-1 flex items-center gap-1.5 backdrop-blur-md pointer-events-auto">
           <button onClick={() => data.onCambiarEstado(id, 'Por Hacer')} className={`text-[9px] font-medium px-1.5 py-0.5 rounded transition-colors cursor-pointer ${data.status === 'Por Hacer' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>Nota</button>
@@ -134,6 +137,7 @@ function NodoMetaAutonomo(props) {
     </div>
   );
 }
+
 const nodeTypes = { nodoMeta: NodoMetaAutonomo, nodoGrupo: NodoGrupoExpandible };
 
 // =========================================================
@@ -325,7 +329,6 @@ export default function GestionProyectos() {
   }, [cargarMapa]); 
 
   // Dinámica de arrastre calibrada absoluta
-  // Dinámica de arrastre calibrada absoluta
   const onNodesChange = useCallback((changes) => {
     setNodes((nds) => {
       const nodosActualizados = applyNodeChanges(changes, nds);
@@ -496,8 +499,8 @@ export default function GestionProyectos() {
     <div className="h-[calc(100vh-40px)] w-full flex flex-col space-y-4 text-left font-sans bg-zinc-950 p-4 text-zinc-200">
       <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
         <div>
-          <h2 className="text-xl font-medium text-zinc-100 tracking-tight">Gráfico de Conocimiento</h2>
-          <p className="text-[11px] text-zinc-500 tracking-wide mt-0.5">Estructura de notas interconectadas estilo Obsidian</p>
+          <h2 className="text-xl font-medium text-zinc-100 tracking-tight">Gráfico de Proyectos</h2>
+          <p className="text-[11px] text-zinc-500 tracking-wide mt-0.5">Mapa de Proyectos</p>
         </div>
         <div className="flex gap-2">
           <button onClick={handleCrearContenedorGrupo} className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-normal flex items-center transition-all cursor-pointer">
