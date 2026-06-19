@@ -8,7 +8,9 @@ import {
   addEdge,
   Handle,
   Position,
-  NodeResizer 
+  NodeResizer,
+  useReactFlow,
+  ReactFlowProvider // 👈 AGREGA ESTO AQUÍ
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { database } from '../api'; 
@@ -30,10 +32,10 @@ function NodoGrupoExpandible(props) {
   const { id, data, selected } = props;
   
   return (
-    <div className={`w-full h-full border-2 border-dashed bg-transparent rounded-2xl p-4 font-sans text-left relative min-w-[200px] min-h-[150px] transition-all duration-200 group/groupnode ${
-      selected ? 'border-purple-500/80 border-solid' : 'border-zinc-800 hover:border-zinc-700'
-    }`}>
-      
+    // 🛠️ Cambiamos 'bg-transparent' por 'bg-[#161619]' (un gris levísimo y sólido) o 'bg-zinc-950'
+    <div className={`w-full h-full border-[3px] bg-[#161619] rounded-2xl p-4 font-sans text-left relative min-w-[200px] min-h-[150px] transition-all duration-200 group/groupnode ${
+      selected ? 'border-purple-500 border-solid' : 'border-zinc-700 border-solid hover:border-zinc-500'
+    }`}>  
       <NodeResizer 
         color="#a855f7" 
         minWidth={200} 
@@ -91,20 +93,20 @@ function NodoGrupoExpandible(props) {
 function NodoMetaAutonomo(props) {
   const { id, data, selected } = props;
   
-  // Definición de colores de fondo y bordes según el estado de la nota
-  let statusColor = 'border-zinc-800 bg-zinc-900/90'; // Por Hacer (Default)
+  // 🎨 FONDOS 100% SÓLIDOS Y CON ALTO CONTRASTE (Sin tocar los estilos de tus bordes)
+  let statusColor = 'border-zinc-800 bg-zinc-800 text-zinc-100'; // Por Hacer: Gris sólido intermedio (resalta del fondo negro)
+  
   if (data.status === 'En Progreso') {
-    statusColor = 'border-amber-500/30 bg-amber-950/20'; 
+    statusColor = 'border-amber-500/30 bg-amber-900 text-amber-50'; // En Progreso: Café/Ámbar quemado sólido muy visible
   }
   if (data.status === 'Completado') {
-    statusColor = 'border-emerald-500/20 bg-emerald-950/20';
+    statusColor = 'border-emerald-500/20 bg-emerald-900 text-emerald-50'; // Completado: Verde pino sólido muy visible
   }
 
   const handleClass = "w-1.5 h-1.5 !bg-zinc-500 !opacity-0 group-hover/node:!opacity-100 transition-opacity !cursor-crosshair before:content-[''] before:absolute before:w-6 before:h-6 before:bg-transparent before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:z-[80]";
 
   return (
-    <div className={`border rounded-lg p-3 w-56 shadow-2xl font-sans text-left transition-all duration-200 relative group/node ${statusColor} ${selected ? 'ring-1 ring-zinc-400 border-zinc-400 shadow-zinc-950/50' : ''}`}>
-      {/* Handles de Conexión */}
+    <div className={`border rounded-lg p-3 w-56 shadow-2xl font-sans text-left transition-all duration-200 relative group/node ${statusColor} ${selected ? 'ring-1 ring-zinc-400 border-zinc-400 shadow-zinc-950/50' : ''}`}>{/* Handles de Conexión */}
       <Handle type="target" position={Position.Top} id="t" className={`${handleClass} z-[60]`} />
       <Handle type="source" position={Position.Top} id="t-o" className={`${handleClass} z-[60]`} />
       
@@ -118,8 +120,16 @@ function NodoMetaAutonomo(props) {
       <Handle type="source" position={Position.Right} id="r-o" className={`${handleClass} z-[60]`} />
 
       {/* Contenido de la Nota sin iconos */}
-      <div className="min-w-0">
-        <p className={`font-normal text-[13px] leading-snug tracking-wide break-words select-none text-zinc-200 ${data.status === 'Completado' ? 'line-through opacity-50' : ''}`}>
+      <div 
+        className="min-w-0 cursor-text select-none"
+        onDoubleClick={() => {
+          const nuevoTexto = prompt("Editar contenido de la nota:", data.label);
+          if (nuevoTexto && nuevoTexto.trim() && nuevoTexto.trim() !== data.label) {
+            data.onEditarTexto(id, nuevoTexto.trim());
+          }
+        }}
+      >
+        <p className={`font-normal text-[13px] leading-snug tracking-wide break-words text-zinc-200 ${data.status === 'Completado' ? 'line-through opacity-50' : ''}`}>
           {data.label}
         </p>
       </div>
@@ -143,7 +153,8 @@ const nodeTypes = { nodoMeta: NodoMetaAutonomo, nodoGrupo: NodoGrupoExpandible }
 // =========================================================
 // 3. COMPONENTE PRINCIPAL
 // =========================================================
-export default function GestionProyectos() {
+//export default function GestionProyectos() {
+export function GestionProyectosContenido() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -192,6 +203,46 @@ export default function GestionProyectos() {
       database.guardarDatos('cambiarStatusNodoFin', { idNodo, status: nuevoEstado }).catch(()=>{});
     }
   }, []);
+
+  const editarTextoMeta = useCallback((idNodo, nuevoTexto) => {
+    let nodoActualizado = null;
+
+    setNodes((nds) => {
+      const resultado = nds.map((n) => {
+        if (n.id === idNodo) {
+          // Modificamos el label en el estado de React
+          nodoActualizado = { ...n, data: { ...n.data, label: nuevoTexto } };
+          return nodoActualizado;
+        }
+        return n;
+      });
+
+      // Si encontramos el nodo, disparamos la persistencia real a mapa_nodos
+      if (nodoActualizado && database && typeof database.guardarDatos === 'function') {
+        // Calculamos las posiciones absolutas por si está dentro de un grupo
+        let xParaSheets = nodoActualizado.position.x;
+        let yParaSheets = nodoActualizado.position.y;
+
+        if (nodoActualizado.parentId) {
+          xParaSheets += nombrarGrupoX(resultado, nodoActualizado.parentId);
+          yParaSheets += nombrarGrupoY(resultado, nodoActualizado.parentId);
+        }
+
+        // 🎯 Usamos la acción correcta de tu script de Sheets: 'guardarDimensionesYCoordenadas'
+        // Tu script actualizará las columnas F y G, y si le mandamos 'label', se guardará ahí.
+        database.guardarDatos('guardarDimensionesYCoordenadas', {
+          id: nodoActualizado.id,
+          label: nuevoTexto, // Le pasamos el nuevo texto
+          x: xParaSheets,
+          y: yParaSheets,
+          width: nodoActualizado.style?.width || '',
+          height: nodoActualizado.style?.height || ''
+        }).catch(()=>{});
+      }
+
+      return resultado;
+    });
+  }, [nombrarGrupoX, nombrarGrupoY]);
 
   const eliminarNodo = useCallback((idNodo) => {
     setNodes((nds) => {
@@ -282,7 +333,8 @@ export default function GestionProyectos() {
           label: n.Label, 
           status: n.Status || 'Por Hacer',
           onCambiarEstado: cambiarEstadoMeta, 
-          onEliminarNodo: eliminarNodo
+          onEliminarNodo: eliminarNodo,
+          onEditarTexto: editarTextoMeta
         }
       };
     });
@@ -440,31 +492,37 @@ export default function GestionProyectos() {
     }
   }, []);
 
-  const handleCrearNuevaMetaDirecta = () => {
+  const handleCrearNuevaMetaDirecta = (posicionExplicita = null) => {
     const texto = prompt("Contenido de la nota:");
     if (!texto || !texto.trim()) return;
 
     const idMeta = `meta_${Date.now()}`;
     const textoLimpio = texto.trim();
 
-    const desvíoX = (contadorMetasLocal.current % 8) * 20;
-    const desvíoY = (contadorMetasLocal.current % 8) * 35;
-    const posicionCascada = { x: 250 + desvíoX, y: 150 + desvíoY };
+    // Si nos pasaron una posición (el clic del mouse), usamos esa. 
+    // Si no (botón del encabezado), usamos la cascada por defecto.
+    let posicionFinal = posicionExplicita;
+    
+    if (!posicionFinal) {
+      const desvíoX = (contadorMetasLocal.current % 8) * 20;
+      const desvíoY = (contadorMetasLocal.current % 8) * 35;
+      posicionFinal = { x: 250 + desvíoX, y: 150 + desvíoY };
+    }
 
     contadorMetasLocal.current += 1;
 
     const nuevaTarjetaMeta = {
       id: idMeta, 
       type: 'nodoMeta', 
-      position: posicionCascada,
-      data: { id: idMeta, label: textoLimpio, status: 'Por Hacer', onCambiarEstado: cambiarEstadoMeta, onEliminarNodo: eliminarNodo }
+      position: posicionFinal,
+      data: { id: idMeta, label: textoLimpio, status: 'Por Hacer', onCambiarEstado: cambiarEstadoMeta, onEliminarNodo: eliminarNodo, onEditarTexto: editarTextoMeta  }
     };
 
     setNodes((nds) => [...nds, nuevaTarjetaMeta].sort((a, b) => (a.type === 'nodoGrupo' ? -1 : 1)));
 
     if (database && typeof database.guardarDatos === 'function') {
       database.guardarDatos('crearNodoMeta', { 
-        id: idMeta, label: textoLimpio, type: 'nodoMeta', status: 'Por Hacer', parentId: '', x: posicionCascada.x, y: posicionCascada.y 
+        id: idMeta, label: textoLimpio, type: 'nodoMeta', status: 'Por Hacer', parentId: '', x: posicionFinal.x, y: posicionFinal.y 
       }).catch(()=>{});
     }
   };
@@ -495,6 +553,21 @@ export default function GestionProyectos() {
     }
   };
 
+  
+  const { screenToFlowPosition } = useReactFlow(); // Obtiene el proyector de coordenadas
+
+  const onPaneClick = useCallback((event) => {
+    // Convertimos la posición del cliente (pantalla) a la posición real en el espacio del mapa
+    const posicionMapa = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    // Lanzamos la creación de la nota en ese lugar exacto
+    handleCrearNuevaMetaDirecta(posicionMapa);
+  }, [screenToFlowPosition, handleCrearNuevaMetaDirecta]);
+
+
   return (
     <div className="h-[calc(100vh-40px)] w-full flex flex-col space-y-4 text-left font-sans bg-zinc-950 p-4 text-zinc-200">
       <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
@@ -522,7 +595,8 @@ export default function GestionProyectos() {
           onNodesChange={onNodesChange} 
           onEdgesChange={onEdgesChange} 
           onConnect={onConnect} 
-          onEdgeClick={onEdgeClick} 
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick} 
           nodeTypes={nodeTypes}
           connectionLineStyle={connectionLineStyle}
           fitView={nodes.length > 1}
@@ -540,3 +614,17 @@ export default function GestionProyectos() {
     </div>
   );
 }
+
+// =========================================================
+// EXPORT COMPUESTO CON PROVIDER (Arregla el contexto del hook)
+// =========================================================
+export default function GestionProyectos() {
+  return (
+    <ReactFlowProvider>
+      <GestionProyectosContenido />
+    </ReactFlowProvider>
+  );
+}
+
+
+
