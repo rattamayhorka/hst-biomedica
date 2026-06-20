@@ -254,7 +254,7 @@ export default function App() {
             <LogOut className="w-3.5 h-3.5" /> salir
           </button>
           <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v3.2.1
+            rattamayhorka v0.4.0
           </div>
         </div>
       </div>
@@ -262,8 +262,11 @@ export default function App() {
       {/* CONTENEDOR DE TRABAJO */}
       <main className="flex-1 overflow-y-auto p-8 bg-[#0f172a]">
         <div id="contenedor-principal">
-          {/* Módulos Hospital */}
-          {seccionActiva === 'kanban' && <Kanban />}
+          {/* Módulos de gestión unificados bajo el mismo componente principal */}
+          {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" />}
+          {seccionActiva === 'casa_pendientes' && <Kanban filtroTipo="Casa" />}
+          
+          {/* Módulos Hospital Restantes */}
           {seccionActiva === 'equipos' && <Equipos />}
           {seccionActiva === 'gases' && <Gases />}
           {seccionActiva === 'proyectos' && <Proyectos />}
@@ -271,11 +274,9 @@ export default function App() {
           {seccionActiva === 'reuniones' && <Reuniones />}
           {seccionActiva === 'proyectos_grafo' && <GestionProyectos />}
 
-          {/* Módulos Casa */}
-          {seccionActiva === 'casa_pendientes' && <PendientesCasa />}
+          {/* Módulos Casa Restantes */}
           {seccionActiva === 'casa_reuniones' && <ReunionesCasa />}
           {seccionActiva === 'casa_gastos' && <GastosCasa />}
-          
         </div>
       </main>
     </div>

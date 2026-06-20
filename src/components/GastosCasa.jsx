@@ -9,7 +9,9 @@ export default function Finanzas() {
   const [guardando, setGuardando] = useState(false);
   const [modalRegistro, setModalRegistro] = useState(false);
   const [macrosAbiertas, setMacrosAbiertas] = useState({});
-  
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 9;
+
   const [form, setForm] = useState({
     importe: "",
     descripcion: "",
@@ -131,6 +133,14 @@ export default function Finanzas() {
   });
 
   const bolsaDisponibleGlobal = presupuestoGlobalEstatico - gastoGlobal;
+  
+  // ✂️ MOTOR DE PAGINACIÓN DINÁMICA
+  const totalPaginas = Math.ceil(transacciones.length / itemsPorPagina) || 1;
+  const indiceUltimoItem = paginaActual * itemsPorPagina;
+  const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
+  // Esta es la lista filtrada de solo 9 elementos que le pasaremos a la tabla:
+  const transaccionesPaginadas = transacciones.slice(indicePrimerItem, indiceUltimoItem);
+
 
   return (
     <div className="space-y-6 text-left p-2">
@@ -268,6 +278,41 @@ export default function Finanzas() {
           <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Bitácora de Huella Financiera</h3>
           <div className="bg-zinc-900 shadow-2xl rounded-xl overflow-hidden border border-zinc-800">
             <div className="overflow-x-auto">
+
+
+          {/* 🔘 CONTROLES DE PAGINACIÓN ESTILO GMAIL / CLI */}
+          <div className="flex justify-between items-center bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-wider">
+            <span className="text-zinc-500 italic">
+              Mostrando {indicePrimerItem + 1}-{Math.min(indiceUltimoItem, transacciones.length)} de {transacciones.length} registros
+            </span>
+            
+            <div className="flex items-center gap-4">
+              <span className="text-zinc-400">
+                Pág. <span className="text-slate-100 tabular-nums">{paginaActual}</span> de <span className="text-slate-100 tabular-nums">{totalPaginas}</span>
+              </span>
+              
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  disabled={paginaActual === 1}
+                  onClick={() => setPaginaActual(prev => prev - 1)}
+                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-30 border border-zinc-800 px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                >
+                  &lt; Ant
+                </button>
+                <button
+                  type="button"
+                  disabled={paginaActual === totalPaginas}
+                  onClick={() => setPaginaActual(prev => prev + 1)}
+                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-30 border border-zinc-800 px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                >
+                  Sig &gt;
+                </button>
+              </div>
+            </div>
+          </div>
+
+
               <table className="w-full">
                 <thead className="bg-zinc-950 text-zinc-400 text-[9px] uppercase tracking-widest font-black border-b border-zinc-800">
                   <tr>
@@ -278,7 +323,7 @@ export default function Finanzas() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800 text-left">
-                  {transacciones.length > 0 ? transacciones.map((t, idx) => {
+                  {transaccionesPaginadas.length > 0 ? transaccionesPaginadas.map((t, idx) => {
                     const rubro = t.Rubro || t.rubro || "Extras";
                     const macro = mapaRubrosAMacro[rubro] || "Extras";
                     const importeCrudo = t.Importe || t.importe || "0";
@@ -311,7 +356,6 @@ export default function Finanzas() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* MODAL DE REGISTRO */}

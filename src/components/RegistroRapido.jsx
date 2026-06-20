@@ -19,22 +19,21 @@ export default function RegistroRapido() {
     const hoy = new Date();
     const fechaFormateada = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
 
+    // Mapeamos el switch de la interfaz al valor exacto de la columna Tipo en Sheets
+    const tipoColumna = destino === 'hospital' ? 'Trabajo' : 'Casa';
+
     const payload = {
       tarea: texto.trim().toUpperCase(),
       status: "Por Hacer",
-      fecha: fechaFormateada
+      fecha: fechaFormateada,
+      tipo: tipoColumna // <- Inyectamos el Tipo dinámicamente aquí
     };
 
     try {
-      if (destino === 'hospital') {
-        // Pega exacto a tu función original del hospital
-        await database.guardarDatos('guardarTarea', { datos: payload });
-      } else {
-        // Pega a tu función nueva de la casa
-        await database.guardarDatos('guardarTarea_Casa', { datos: payload });
-      }
+      // Apuntamos AMBOS a la única acción unificada en tu Apps Script
+      await database.guardarDatos('guardarTarea', { datos: payload });
       
-      setMensaje({ tipo: 'success', texto: 'Registrado correctamente en Sheets' });
+      setMensaje({ tipo: 'success', texto: `Registrado correctamente en Sheets [${tipoColumna.toUpperCase()}]` });
       setTexto(''); // Limpia el input para el que sigue
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error de red al intentar registrar' });
@@ -85,7 +84,7 @@ export default function RegistroRapido() {
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               placeholder={destino === 'hospital' ? 'Ej. PIDE OXIGENO' : 'Ej. COMPRAR TOPOCHICO'}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-bold uppercase outline-none text-slate-200 focus:border-violet-600"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-bold uppercase outline-none text-slate-200 focus:border-zinc-700"
             />
           </div>
 
