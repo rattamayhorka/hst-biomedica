@@ -254,7 +254,7 @@ export default function App() {
             <LogOut className="w-3.5 h-3.5" /> salir
           </button>
           <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v3.2.0
+            rattamayhorka v3.2.1
           </div>
         </div>
       </div>

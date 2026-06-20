@@ -23,7 +23,7 @@ export default function Finanzas() {
     "Mes IQI": "Educacion", "Mes UVM": "Educacion", "RVOE": "Educacion",
     "Despensa": "Consumibles / Alimentacion",
     "Preparada": "Restaurantes", "Restaurantes": "Restaurantes",
-    "TransporteOP": "Transporte", "TransporteIQI": "Transporte Fijo", "TransporteOtros": "Transporte Extra",
+    "TransporteOP": "Transporte Fijo", "TransporteIQI": "Transporte Fijo", "TransporteOtros": "Transporte Extra",
     "Prevision": "Prevision y salud", "Domingos": "Prevision y salud", "Salud": "Prevision y salud", "Cabello": "Prevision y salud",
     "ChatGPT": "Membresias / Suscripciones", "ChatGPT (V)": "Membresias / Suscripciones", "Obsidian": "Membresias / Suscripciones",
     "Strava": "Membresias / Suscripciones", "YouTube": "Membresias / Suscripciones", "Nintendo": "Membresias / Suscripciones",
@@ -192,14 +192,30 @@ export default function Finanzas() {
               const porcentajeBarra = item.asignado > 0 ? (item.gastado / item.asignado) * 100 : 100;
               const estaAbierto = !!macrosAbiertas[macro];
 
-              // Reglas visuales tácticas de color
+              // =========================================================
+              // AJUSTE DE LÓGICA DE ALTO CONTRASTE Y SEMÁFORO REALISTA
+              // =========================================================
               const sobregirado = disponible < 0;
-              const colorBarra = sobregirado ? "bg-red-500" : porcentajeBarra > 80 ? "bg-orange-500" : "bg-emerald-400";
-              const colorTextoDisponible = sobregirado ? "text-red-400 font-black animate-pulse" : "text-zinc-400 font-bold";
+              const justoEnElLimite = disponible === 0;
 
+              // Definición táctica del color de la barra
+              const colorBarra = sobregirado 
+                ? "bg-red-500" 
+                : justoEnElLimite 
+                  ? "bg-sky-500" // 👈 Si está al límite (ej. 600 de 600), se pinta de un azul limpio de éxito
+                  : porcentajeBarra > 85 
+                    ? "bg-orange-500" 
+                    : "bg-emerald-400";
+
+              // Ajuste del texto de alerta de exceso
+              const colorTextoDisponible = sobregirado 
+                ? "text-red-400 font-black animate-pulse" 
+                : justoEnElLimite
+                  ? "text-sky-400 font-bold" // Texto azul limpio si estás en ceros exactos
+                  : "text-zinc-400 font-bold";
               return (
-                <div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950/90 ${sobregirado ? 'border-red-900/60' : 'border-zinc-800'}`}>
-                  
+                //<div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950/90 ${sobregirado ? 'border-red-900/60' : 'border-zinc-800'}`}>
+                  <div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950/90 ${sobregirado ? 'border-red-900/60' : 'border-zinc-800'}`}>  
                   {/* Header Macro */}
                   <div 
                     onClick={() => toggleMacro(macro)}
