@@ -19,10 +19,12 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [errorAuth, setErrorAuth] = useState(false);
 
-  // CLAVE INSTITUCIONAL DE ACCESO (Cámbiala por la que tú quieras)
+  // 🚀 ESTADO DE LLAVES DE REFRESCO PARA FORZAR RECARGA LOCAL
+  const [refreshKeys, setRefreshKeys] = useState({});
+
+  // CLAVE INSTITUCIONAL DE ACCESO
   const CLAVE_ACCESO_ST = "admin123ray";
 
-  // Al arrancar, revisamos si ya se había loggeado antes en esta máquina
   useEffect(() => {
     const sesionValida = localStorage.getItem('sesion_biomedica_st');
     if (sesionValida === 'activa') {
@@ -30,10 +32,21 @@ export default function App() {
     }
   }, []);
 
-// INTERCEPTOR DE RUTA NATIVA (Colócalo antes del chequeo de autenticación)
   if (window.location.pathname === '/registro') {
     return <RegistroRapido />;
   }
+
+  // 🚀 ENRUTADOR INTELIGENTE: Si repite clic en la misma sección, genera un F5 localizado
+  const cambiarSeccion = (seccion) => {
+    if (seccionActiva === seccion) {
+      setRefreshKeys(prev => ({
+        ...prev,
+        [seccion]: (prev[seccion] || 0) + 1
+      }));
+    } else {
+      setSeccionActiva(seccion);
+    }
+  };
 
   const manejarLogin = (e) => {
     e.preventDefault();
@@ -53,7 +66,6 @@ export default function App() {
     setAutenticado(false);
   };
 
-  // --- VISTA 1: PANTALLA DE BLOQUEO DE SEGURIDAD ---
   if (!autenticado) {
     return (
       <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center p-4 font-sans text-[#f8fafc]">
@@ -95,8 +107,6 @@ export default function App() {
     );
   }
 
-  // --- VISTA 2: APLICACIÓN COMPLETA DESBLOQUEADA ---
-
   return (
     <div className="bg-[#0f172a] text-[#f8fafc] flex h-screen overflow-hidden font-sans">
       
@@ -107,19 +117,14 @@ export default function App() {
             Control Panel
           </div>
 
-
-
           <nav className="mt-4 space-y-1 px-2">
-
-            {/* SEPARADOR / GRUPO: PERSONAL CASA #475569*/}
             <div className="text-[11px] font-black text-[#38bdf8] uppercase tracking-widest px-3 mb-1 mt-6">
               Trabajo
             </div>
-            
 
-            {/* GRUPO: HOSPITAL */}
+            {/* 🚀 MODIFICADO: Todos los onClick ahora apuntan a cambiarSeccion */}
             <button 
-              onClick={() => setSeccionActiva('kanban')} 
+              onClick={() => cambiarSeccion('kanban')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'kanban' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -127,7 +132,7 @@ export default function App() {
               Kanban
             </button>
             <button 
-              onClick={() => setSeccionActiva('equipos')} 
+              onClick={() => cambiarSeccion('equipos')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'equipos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -135,7 +140,7 @@ export default function App() {
               UP/DOWN Equipo Medico 
             </button>
             <button 
-              onClick={() => setSeccionActiva('gases')} 
+              onClick={() => cambiarSeccion('gases')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -143,7 +148,7 @@ export default function App() {
               Control de Gases
             </button>
             <button 
-              onClick={() => setSeccionActiva('proyectos')} 
+              onClick={() => cambiarSeccion('proyectos')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'proyectos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -151,7 +156,7 @@ export default function App() {
               Compromisos
             </button>
             <button 
-              onClick={() => setSeccionActiva('compras')} 
+              onClick={() => cambiarSeccion('compras')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'compras' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -160,7 +165,7 @@ export default function App() {
             </button>
   
             <button 
-              onClick={() => setSeccionActiva('reuniones')} 
+              onClick={() => cambiarSeccion('reuniones')} 
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'reuniones' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -168,14 +173,12 @@ export default function App() {
               Future LOG
             </button>
 
-            {/* SEPARADOR / GRUPO: PERSONAL CASA #475569*/}
             <div className="text-[11px] font-black text-amber-400 uppercase tracking-widest px-3 mb-1 mt-6">
               Familia
             </div>
 
-            {/* Kanban Casa */}
-            <button  
-              onClick={() => setSeccionActiva('casa_pendientes')}  
+            <button 
+              onClick={() => cambiarSeccion('casa_pendientes')}  
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'casa_pendientes' 
                   ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
@@ -185,9 +188,8 @@ export default function App() {
               Kanban Casa
             </button>
 
-            {/* Eventos Casa */}
-            <button  
-              onClick={() => setSeccionActiva('casa_reuniones')}  
+            <button 
+              onClick={() => cambiarSeccion('casa_reuniones')}  
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'casa_reuniones' 
                   ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
@@ -197,9 +199,8 @@ export default function App() {
               Future LOG
             </button>
 
-
-            <button  
-              onClick={() => setSeccionActiva('casa_gastos')}  
+            <button 
+              onClick={() => cambiarSeccion('casa_gastos')}  
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'casa_gastos' 
                   ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
@@ -209,17 +210,8 @@ export default function App() {
               Finanzas 
             </button>
 
-
-
-
-
-
-
-
-
-            {/* INYECTA ESTE NUEVO BOTÓN AQUÍ */}
             <button  
-              onClick={() => setSeccionActiva('proyectos_grafo')}  
+              onClick={() => cambiarSeccion('proyectos_grafo')}  
               className={`w-full flex items-center p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
                 seccionActiva === 'proyectos_grafo' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
@@ -229,24 +221,17 @@ export default function App() {
           </nav>
         </div>
 
-
-
-        {/* Zona inferior del menú: Botón de Salida Segura */}
         <div className="p-4 border-t border-[#334155] flex flex-col gap-2">
-
-
-          {/* LINK MADRE A GOOGLE SHEETS */}
           <a 
             href="https://docs.google.com/spreadsheets/d/1zAkCvBUPxxGFY_-a6M92hhqzJXNM6TPGCVVuL-Pu19Q" 
             target="_blank" 
             rel="noopener noreferrer"
-            class="w-full bg-zinc-900/60 hover:bg-zinc-800/80 text-slate-400 hover:text-violet-400 font-black px-4 py-2.5 rounded-xl border border-zinc-800/80 transition-all text-[10px] uppercase tracking-widest flex items-center justify-between shadow-md group cursor-pointer"
+            className="w-full bg-zinc-900/60 hover:bg-zinc-800/80 text-slate-400 hover:text-violet-400 font-black px-4 py-2.5 rounded-xl border border-zinc-800/80 transition-all text-[10px] uppercase tracking-widest flex items-center justify-between shadow-md group cursor-pointer"
           >
             <span>Base de Datos</span>
-            <span class="text-zinc-600 group-hover:text-violet-500 transition-colors text-xs">↗</span>
+            <span className="text-zinc-600 group-hover:text-violet-500 transition-colors text-xs">↗</span>
           </a>
 
-          {/* TU BOTÓN DE SALIR EXISTENTE */}
           <button 
             onClick={cerrarSesion}
             className="w-full flex items-center justify-center gap-2 p-2.5 text-[10px] font-black uppercase text-rose-400 bg-rose-950/20 border border-rose-900/30 rounded-xl hover:bg-rose-950/50 hover:text-rose-300 transition-all cursor-pointer tracking-wider"
@@ -254,7 +239,7 @@ export default function App() {
             <LogOut className="w-3.5 h-3.5" /> salir
           </button>
           <div className="text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.4.0
+            rattamayhorka v0.4.4
           </div>
         </div>
       </div>
@@ -262,21 +247,19 @@ export default function App() {
       {/* CONTENEDOR DE TRABAJO */}
       <main className="flex-1 overflow-y-auto p-8 bg-[#0f172a]">
         <div id="contenedor-principal">
-          {/* Módulos de gestión unificados bajo el mismo componente principal */}
-          {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" />}
-          {seccionActiva === 'casa_pendientes' && <Kanban filtroTipo="Casa" />}
+          {/* 🚀 MODIFICADO: Pasamos refreshTrigger a cada componente */}
+          {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" refreshTrigger={refreshKeys['kanban']} />}
+          {seccionActiva === 'casa_pendientes' && <Kanban filtroTipo="Casa" refreshTrigger={refreshKeys['casa_pendientes']} />}
           
-          {/* Módulos Hospital Restantes */}
-          {seccionActiva === 'equipos' && <Equipos />}
-          {seccionActiva === 'gases' && <Gases />}
-          {seccionActiva === 'proyectos' && <Proyectos />}
-          {seccionActiva === 'compras' && <Compras />}
-          {seccionActiva === 'reuniones' && <Reuniones />}
-          {seccionActiva === 'proyectos_grafo' && <GestionProyectos />}
+          {seccionActiva === 'equipos' && <Equipos refreshTrigger={refreshKeys['equipos']} />}
+          {seccionActiva === 'gases' && <Gases refreshTrigger={refreshKeys['gases']} />}
+          {seccionActiva === 'proyectos' && <Proyectos refreshTrigger={refreshKeys['proyectos']} />}
+          {seccionActiva === 'compras' && <Compras refreshTrigger={refreshKeys['compras']} />}
+          {seccionActiva === 'reuniones' && <Reuniones refreshTrigger={refreshKeys['reuniones']} />}
+          {seccionActiva === 'proyectos_grafo' && <GestionProyectos refreshTrigger={refreshKeys['proyectos_grafo']} />}
 
-          {/* Módulos Casa Restantes */}
-          {seccionActiva === 'casa_reuniones' && <ReunionesCasa />}
-          {seccionActiva === 'casa_gastos' && <GastosCasa />}
+          {seccionActiva === 'casa_reuniones' && <ReunionesCasa refreshTrigger={refreshKeys['casa_reuniones']} />}
+          {seccionActiva === 'casa_gastos' && <GastosCasa refreshTrigger={refreshKeys['casa_gastos']} />}
         </div>
       </main>
     </div>
