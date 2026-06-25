@@ -138,7 +138,7 @@ export default function Finanzas({refreshTrigger}) {
   const listaRubros = Object.keys(mapaRubrosAMacro);
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Iniciando contabilidad base cero...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   // =========================================================================

@@ -182,6 +182,7 @@ export default function Kanban({ filtroTipo, refreshTrigger }) {
       fechaFinal = `${dia}/${mes}/${anio}`;
     }
 
+    // 1. Actualizamos el estado de React de inmediato en el Front-end
     if (editStatus === 'Programado') {
       setTareas(prev => prev.filter(t => t.Tarea !== tareaSeleccionada.Tarea));
     } else {
@@ -197,20 +198,22 @@ export default function Kanban({ filtroTipo, refreshTrigger }) {
     const nuevoStatus = editStatus;
     const nuevoTipo = filtroTipo;
 
+    // Cierre inmediato del modal para que se sienta fluido
     setMostrarModalEditar(false);
     setTareaSeleccionada(null);
     setGuardando(false);
 
-    await database.guardarDatos('statusKanban', { 
-      tareaTexto: tareaOriginal, 
-      nuevoStatus: nuevoStatus, 
-      nuevaFecha: fechaFinal, 
-      nuevoTipo: nuevoTipo 
+    // 2. Encofrado de la petición: apuntamos a 'modificarTarea' con los params correctos
+    await database.guardarDatos('modificarTarea', { 
+      datos: {
+        tareaOriginal: tareaOriginal, 
+        nuevaTarea: nuevaTarea, 
+        nuevoStatus: nuevoStatus, 
+        nuevaFecha: fechaFinal, 
+        nuevoTipo: nuevoTipo 
+      }
     });
-    
-    cargarTareas();
   };
-
   const ejecutarArchivarTarea = async () => {
     if (!tareaSeleccionada) return;
 
@@ -252,7 +255,7 @@ export default function Kanban({ filtroTipo, refreshTrigger }) {
   const borderTopModal = esTrabajo ? 'border-t-violet-600' : 'border-t-amber-600';
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left">Sincronizando tablero unificado con Google Sheets...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left">Actualizando...</p>;
   }
 
   return (

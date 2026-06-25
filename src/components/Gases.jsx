@@ -30,7 +30,7 @@ export default function Gases() {
   }, []);
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Descargando lecturas de la Central de Gases...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   if (!reporte) {

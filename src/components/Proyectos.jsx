@@ -112,7 +112,7 @@ export default function Proyectos() {
   };
 
   if (cargando) {
-    return <p class="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left">Cargando minutas y acuerdos...</p>;
+    return <p class="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left">Actualizando...</p>;
   }
 
   const totalCriticosGeneral = acuerdos.filter(item => {

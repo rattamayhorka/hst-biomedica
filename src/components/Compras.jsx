@@ -98,7 +98,7 @@ export default function Compras() {
   };
   
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Sincronizando trámites de compras...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   // Filtrados de tus tres bloques visuales

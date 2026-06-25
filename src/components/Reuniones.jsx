@@ -88,7 +88,7 @@ export default function Reuniones() {
   };
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Organizando cronograma de comités...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   const hoy = new Date();

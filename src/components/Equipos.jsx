@@ -18,7 +18,7 @@ export default function Equipos() {
   }, []);
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Descargando estatus de equipos...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   const determinarSalaEnglobada = (item) => {
