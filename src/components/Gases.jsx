@@ -128,7 +128,7 @@ export default function Gases() {
             
             <div className="space-y-2">
               {/* Alerta inteligente de Dewars */}
-              {nivelTotalSuministro <= 150 && (
+              {nivelTotalSuministro <= 125 && (
                 <div className="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-rose-400 shadow-sm">
                   <span className="text-[10px] font-black uppercase tracking-tight italic">Solicitar Carga Dewar ({nivelTotalSuministro / 3}%)</span>
                   <Truck className="w-3.5 h-3.5 animate-bounce" />

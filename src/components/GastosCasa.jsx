@@ -196,24 +196,33 @@ export default function Finanzas({refreshTrigger}) {
   });
 
   // 🚀 CÁLCULO ARITMÉTICO DEL EFECTIVO REAL FÍSICO (SUMA DINÁMICA DE TUS 4 CONCEPTOS EN C Y D)
-  const efectivoFisicoTotal = (saldosCuentas["vicky billetes"] || 0) + 
-                             (saldosCuentas["vicky monedas"] || 0) + 
-                             (saldosCuentas["monedas caja"] || 0) + 
-                             (saldosCuentas["billetes caja"] || 0);
+  const efectivoFisicoTotal = (saldosCuentas["Debito BBVA (E)"] || 0) + 
+                              (saldosCuentas["Debito BBVA (V)"] || 0) + 
+                              (saldosCuentas["Debito Santander (V)"] || 0) + 
+                              (saldosCuentas["Spin"] || 0) + 
+                              (saldosCuentas["TDCSantander"] || 0) + 
+                              (saldosCuentas["TDCLike U"] || 0) + 
+                              (saldosCuentas["TDCNU"] || 0) + 
+                              (saldosCuentas["TDCE"] || 0) + 
+                              (saldosCuentas["Efectivale"] || 0) + 
+                              (saldosCuentas["TDCV"] || 0) + 
+                              (saldosCuentas["Si vale"] || 0) + 
+                              (saldosCuentas["Efectivo"] || 0);
 
-  const bolsaCompromisosPendientes = compromisosCriticosAsignados - compromisosCriticosGastados;
-  const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].assigned || macroEstructura["Deudas / Tarjetas"].asignado : 0;
-  
-  // 🔥 FÓRMULA ANTIDESTRUCCIÓN DE LIQUIDEZ: Elimina la doble penalización por abonos aplicados
-  const bolsaDisponibleFlujoLibre = (presupuestoGlobalEstatico - deudasAsignadas) - (gastoGlobal - totalDeudaMitigada);
-  
-  // Paginador
-  const totalPaginas = Math.ceil(transacciones.length / itemsPorPagina) || 1;
-  const indiceUltimoItem = paginaActual * itemsPorPagina;
-  const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
-  const transaccionesPaginadas = transacciones.slice(indicePrimerItem, indiceUltimoItem);
 
-  return (
+const bolsaCompromisosPendientes = compromisosCriticosAsignados - compromisosCriticosGastados;
+const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].assigned || macroEstructura["Deudas / Tarjetas"].asignado : 0;
+
+// 🔥 FÓRMULA ANTIDESTRUCCIÓN DE LIQUIDEZ: Elimina la doble penalización por abonos aplicados
+const bolsaDisponibleFlujoLibre = (presupuestoGlobalEstatico - deudasAsignadas) - (gastoGlobal - totalDeudaMitigada);
+
+// Paginador
+const totalPaginas = Math.ceil(transacciones.length / itemsPorPagina) || 1;
+const indiceUltimoItem = paginaActual * itemsPorPagina;
+const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
+const transaccionesPaginadas = transacciones.slice(indicePrimerItem, indiceUltimoItem);
+
+return (
     <div className="space-y-6 text-left p-2 bg-zinc-950 text-zinc-200 font-sans min-h-screen">
       
       {/* HEADER CONTROLES */}
