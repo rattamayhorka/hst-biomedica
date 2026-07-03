@@ -23,21 +23,28 @@ import {
   Home,
   Map,
   DollarSign,
-  Database
+  Database,
+  KeyRound,
+  Send
 } from 'lucide-react';
 
 export default function App() {
   const [seccionActiva, setSeccionActiva] = useState('kanban');
   const [autenticado, setAutenticado] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [errorAuth, setErrorAuth] = useState(false);
   const [refreshKeys, setRefreshKeys] = useState({});
 
-  const CLAVE_ACCESO_ST = "admin123ray";
+  // 🔐 NUEVOS ESTADOS PARA AUTENTICACIÓN POR TELEGRAM
+  const [pasoAuth, setPasoAuth] = useState(1); // 1: Solicitar código, 2: Verificar código
+  const [codigoInput, setCodigoInput] = useState('');
+  const [tempToken, setTempToken] = useState('');
+  const [errorAuth, setErrorAuth] = useState('');
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
+    // Si usas JWT, aquí puedes verificar si el token sigue siendo válido.
+    // De momento mantenemos tu validación local rápida.
     const sesionValida = localStorage.getItem('sesion_biomedica_st');
-    if (sesionValida === 'activa') {
+    if (sesionValida) {
       setAutenticado(true);
     }
   }, []);
@@ -57,53 +64,127 @@ export default function App() {
     }
   };
 
-  const manejarLogin = (e) => {
+  // 🚀 SOLICITAR CÓDIGO AL BOT DE TELEGRAM (Llama a tu endpoint de Vercel)
+  const solicitarCodigoTelegram = async () => {
+    setCargando(true);
+    setErrorAuth('');
+    try {
+      const res = await fetch('/api/send-code', { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.success) {
+        setTempToken(data.tempToken);
+        setPasoAuth(2); // Pasamos al input para meter el código
+      } else {
+        setErrorAuth(data.error || 'Error al enviar el código.');
+      }
+    } catch (err) {
+      setErrorAuth('Error de conexión con el servidor.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  // 🔐 VERIFICAR CÓDIGO INGRESADO
+  const manejarVerificacionCodigo = async (e) => {
     e.preventDefault();
-    if (passwordInput === CLAVE_ACCESO_ST) {
-      localStorage.setItem('sesion_biomedica_st', 'activa');
-      setAutenticado(true);
-      setErrorAuth(false);
-      setPasswordInput('');
-    } else {
-      setErrorAuth(true);
-      setPasswordInput('');
+    setCargando(true);
+    setErrorAuth('');
+
+    try {
+      const res = await fetch('/api/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputCode: codigoInput, tempToken })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('sesion_biomedica_st', data.sessionToken);
+        setAutenticado(true);
+        setCodigoInput('');
+        setErrorAuth('');
+      } else {
+        setErrorAuth(data.error || 'Código incorrecto.');
+        setCodigoInput('');
+      }
+    } catch (err) {
+      setErrorAuth('Error al validar el código.');
+    } finally {
+      setCargando(false);
     }
   };
 
   const cerrarSesion = () => {
     localStorage.removeItem('sesion_biomedica_st');
     setAutenticado(false);
+    setPasoAuth(1);
   };
 
+  // 🔒 VISTA DE LOGIN AJUSTADA AL NUEVO FLUJO 2FA TELEGRAM
   if (!autenticado) {
     return (
       <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center p-4 font-sans text-[#f8fafc]">
         <div className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 border-t-4 border-t-[#38bdf8]">
           <div className="h-12 w-12 rounded-full bg-[#0c4a6e] border border-[#334155] flex items-center justify-center mx-auto mb-4 text-[#38bdf8]">
-            <Lock className="w-5 h-5" />
+            {pasoAuth === 1 ? <Send className="w-5 h-5 animate-pulse" /> : <KeyRound className="w-5 h-5" />}
           </div>
-          <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#f8fafc] mb-1">Acceso Restringido</h2>
+          <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#f8fafc] mb-1">
+            {pasoAuth === 1 ? 'Mandar Token' : 'Verificación 2FA'}
+          </h2>
           <p className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-widest mb-6">Control de Operaciones | Hospital Santo Tomás</p>
-          <form onSubmit={manejarLogin} className="space-y-4 text-left">
-            <div>
-              <label className="block text-[9px] font-black uppercase text-[#94a3b8] mb-1.5 tracking-wider">Clave de Seguridad</label>
-              <input 
-                type="password" 
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="••••••••••••••" 
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-xl p-3 text-sm text-center tracking-widest text-[#38bdf8] font-mono outline-none focus:border-[#38bdf8] transition-all"
-              />
-            </div>
-            {errorAuth && (
-              <p className="text-[10px] font-black text-rose-400 uppercase italic text-center tracking-tight">
-                Clave incorrecta. Intenta de nuevo.
+          
+          {errorAuth && (
+            <p className="text-[10px] font-black text-rose-400 uppercase italic text-center tracking-tight mb-4 bg-rose-950/30 p-2 rounded-xl border border-rose-900/30">
+              {errorAuth}
+            </p>
+          )}
+
+          {pasoAuth === 1 ? (
+            <div className="space-y-4">
+              <p className="text-xs text-[#94a3b8] text-center leading-relaxed">
+                Para acceder, solicita un token único de acceso que se enviará directamente a tu cuenta de Telegram vinculada.
               </p>
-            )}
-            <button type="submit" className="w-full bg-[#38bdf8] hover:bg-[#0ea5e9] text-slate-950 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all cursor-pointer mt-2">
-              Desbloquear Sistema
-            </button>
-          </form>
+              <button 
+                onClick={solicitarCodigoTelegram}
+                disabled={cargando}
+                className="w-full bg-[#38bdf8] hover:bg-[#0ea5e9] text-slate-950 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all cursor-pointer mt-2 disabled:opacity-50"
+              >
+                {cargando ? 'Enviando...' : 'Solicitar Código por Telegram'}
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={manejarVerificacionCodigo} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[9px] font-black uppercase text-[#94a3b8] mb-1.5 tracking-wider text-center">
+                  Introduce el Token de 6 dígitos
+                </label>
+                <input 
+                  type="text" 
+                  maxLength={6}
+                  value={codigoInput}
+                  onChange={(e) => setCodigoInput(e.target.value)}
+                  placeholder="000000" 
+                  disabled={cargando}
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-xl p-3 text-lg text-center tracking-widest text-[#38bdf8] font-mono outline-none focus:border-[#38bdf8] transition-all"
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={cargando || codigoInput.length < 6}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all cursor-pointer mt-2 disabled:opacity-50"
+              >
+                {cargando ? 'Verificando...' : 'Validar Acceso'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPasoAuth(1)}
+                className="w-full text-center text-[9px] font-bold uppercase text-[#94a3b8] hover:text-[#f8fafc] transition-all block mt-2"
+              >
+                ← Volver a solicitar código
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -122,7 +203,7 @@ export default function App() {
             Control Panel
           </div>
 
-          {/* 🛠️ NAV CON SCROLL INTERNO: Si las secciones no caben en la tablet, hacen scroll aquí sin empujar el fondo */}
+          {/* 🛠️ NAV CON SCROLL INTERNO */}
           <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2 min-h-0 custom-scrollbar">
             {/* Sección Trabajo */}
             <div className="hidden xl:block text-[11px] font-black text-[#38bdf8] uppercase tracking-widest px-3 mb-1 mt-2">
@@ -139,20 +220,6 @@ export default function App() {
               <Columns3 className="w-4 h-4 flex-shrink-0 xl:hidden" /> 
               <span className="hidden xl:inline px-1">Kanban</span>
             </button>
-
-
-            {/*
-            <button 
-              onClick={() => cambiarSeccion('equipos')} 
-              title="UP/DOWN Equipo Medico"
-              className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'equipos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
-              }`}
-            >
-              <Wrench className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1 truncate">UP/DOWN Equipo Medico</span>
-            </button>
-            */}
 
             <button 
               onClick={() => cambiarSeccion('gases')} 
@@ -255,7 +322,7 @@ export default function App() {
           </nav>
         </div>
 
-        {/* 🛠️ SECCIÓN INFERIOR BLOQUEADA FIJA: Nunca se va a desbordar */}
+        {/* 🛠️ SECCIÓN INFERIOR FIJA */}
         <div className="p-2 xl:p-4 border-t border-[#334155] bg-[#1e293b] flex flex-col items-center xl:items-stretch gap-2 flex-shrink-0">
           
           <a 
@@ -280,17 +347,16 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.5.0
+            rattamayhorka v0.6.1 "finTOOL"
           </div>
         </div>
       </div>
 
-      {/* CONTENEDOR DE TRABAJO (Se expande automáticamente) */}
+      {/* CONTENEDOR DE TRABAJO */}
       <main className="flex-1 overflow-y-auto p-4 xl:p-8 bg-[#0f172a]">
         <div id="contenedor-principal">
           {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" refreshTrigger={refreshKeys['kanban']} />}
           {seccionActiva === 'casa_pendientes' && <Kanban filtroTipo="Casa" refreshTrigger={refreshKeys['casa_pendientes']} />}
-          {/*{seccionActiva === 'equipos' && <Equipos refreshTrigger={refreshKeys['equipos']} />}*/}
           {seccionActiva === 'gases' && <Gases refreshTrigger={refreshKeys['gases']} />}
           {seccionActiva === 'proyectos' && <Proyectos refreshTrigger={refreshKeys['proyectos']} />}
           {seccionActiva === 'compras' && <Compras refreshTrigger={refreshKeys['compras']} />}
