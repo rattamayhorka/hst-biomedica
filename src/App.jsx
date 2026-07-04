@@ -40,14 +40,20 @@ export default function App() {
   const [errorAuth, setErrorAuth] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  useEffect(() => {
-    // Si usas JWT, aquí puedes verificar si el token sigue siendo válido.
-    // De momento mantenemos tu validación local rápida.
-    const sesionValida = localStorage.getItem('sesion_biomedica_st');
-    if (sesionValida) {
-      setAutenticado(true);
-    }
-  }, []);
+   useEffect(() => {
+      // 🎯 BYPASS LOCAL: Si estás en tu computadora (localhost o 127.0.0.1)
+      // te da acceso directo para que puedas desarrollar y ver tus cambios rápido.
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        setAutenticado(true);
+        return; // Nos salimos aquí para saltarnos el flujo en local
+      }
+
+      // 🔒 FLUJO DE PRODUCCIÓN: En internet sí valida tu sesión de forma estricta
+      const sesionValida = localStorage.getItem('sesion_biomedica_st');
+      if (sesionValida) {
+        setAutenticado(true);
+      }
+    }, []);
 
   if (window.location.pathname === '/registro') {
     return <RegistroRapido />;
@@ -347,7 +353,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.6.1 "finTOOL"
+            rattamayhorka v0.6.2 "finTOOL"
           </div>
         </div>
       </div>
