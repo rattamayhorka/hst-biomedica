@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { database } from '../api';
 import { X, Plus, CreditCard, ChevronDown, ChevronRight, AlertTriangle, ShieldCheck, Flame, Wallet, CheckCircle2 } from 'lucide-react';
 
-export default function Finanzas({refreshTrigger}) {
+export default function Finanzas({ refreshTrigger }) {
   const [transacciones, setTransacciones] = useState([]);
   const [presupuestosBase, setPresupuestosBase] = useState([]);
   const [mapaRubrosAMacro, setMapaRubrosAMacro] = useState({}); 
@@ -10,10 +10,13 @@ export default function Finanzas({refreshTrigger}) {
   const [guardando, setGuardando] = useState(false);
   const [modalRegistro, setModalRegistro] = useState(false);
   
-  // 💸 ESTADOS DINÁMICOS PARA TUS COLUMNAS C Y D (CONTRALORÍA DE SALDOS)
+  // 💸 CONTROL DE SALDOS Y MÉTODOS
   const [modalSaldos, setModalSaldos] = useState(false);
-  const [saldosCuentas, setSaldosCuentas] = useState({}); // Almacena { "vicky billetes": 330, "billetes caja": 3011, ... }
-  const [listaMetodos, setListaMetodos] = useState([]);   // 🦾 100% DINÁMICO: Inicializa vacío, Sheets gobierna
+  const [saldosCuentas, setSaldosCuentas] = useState({}); 
+  const [listaMetodos, setListaMetodos] = useState([]);  
+
+  // 📅 SELECCIÓN DE PERIODO DINÁMICO
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(obtenerQuincenaActualId());
 
   const [macrosAbiertas, setMacrosAbiertas] = useState({ "Facturas / Vivienda": true, "Deudas / Tarjetas": true });
   const [paginaActual, setPaginaActual] = useState(1);
@@ -22,12 +25,69 @@ export default function Finanzas({refreshTrigger}) {
   const [form, setForm] = useState({
     importe: "",
     descripcion: "",
-    metodo_pago: "", // Se auto-seleccionará el primero disponible de tu columna C
-    rubro: "" 
+    metodo_pago: "", 
+    rubro: "",
+    tipo: "GASTO" // GASTO o INGRESO (Para Opción A)
   });
 
   // =========================================================================
-  //  📡 CONEXIÓN E INGESTIÓN DE DATOS EN PARALELO
+  //  📅 MOTOR DE FECHAS Y QUINCENAS AUTOMÁTICO (PERPETUO)
+  // =========================================================================
+  function obtenerQuincenaActualId() {
+    const hoy = new Date();
+    const año = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const quincena = hoy.getDate() <= 15 ? 'Q1' : 'Q2';
+    return `${año}-${mes}-${quincena}`;
+  }
+
+  function parsearFechaAQuincenaId(fechaStr) {
+    if (!fechaStr) return '';
+    const partes = fechaStr.includes('-') ? fechaStr.split('-') : fechaStr.split('/');
+    let año, mes, dia;
+    if (partes[0].length === 4) { 
+      [año, mes, dia] = partes.map(Number);
+    } else { 
+      [dia, mes, año] = partes.map(Number);
+    }
+    const qId = dia <= 15 ? 'Q1' : 'Q2';
+    return `${año}-${String(mes).padStart(2, '0')}-${qId}`;
+  }
+
+  function calcularProgresoTiempoQuincena() {
+    const hoy = new Date();
+    const dia = hoy.getDate();
+    if (dia <= 15) {
+      return { actual: dia, total: 15, pct: (dia / 15) * 100 };
+    } else {
+      const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+      const diasEnSegundaQ = ultimoDia - 15;
+      const diaActualSegundaQ = dia - 15;
+      return { actual: diaActualSegundaQ, total: diasEnSegundaQ, pct: (diaActualSegundaQ / diasEnSegundaQ) * 100 };
+    }
+  }
+
+  function generarOpcionesDeQuincenas() {
+    const opciones = [];
+    const hoy = new Date();
+    const mesesEtiquetas = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    for (let i = -2; i <= 1; i++) {
+      const fechaIterada = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+      const año = fechaIterada.getFullYear();
+      const mesNum = String(fechaIterada.getMonth() + 1).padStart(2, '0');
+      const mesNombre = mesesEtiquetas[fechaIterada.getMonth()];
+
+      opciones.push({ id: `${año}-${mesNum}-Q1`, texto: `${mesNombre} ${año} - 1ra Quincena (1 al 15)` });
+      opciones.push({ id: `${año}-${mesNum}-Q2`, texto: `${mesNombre} ${año} - 2da Quincena (16 al fin)` });
+    }
+    return opciones.reverse();
+  }
+
+  const progresoQuincena = calcularProgresoTiempoQuincena();
+
+  // =========================================================================
+  //  📡 INGESTIÓN DE DATA
   // =========================================================================
   const cargarDatos = async () => {
     try {
@@ -38,12 +98,10 @@ export default function Finanzas({refreshTrigger}) {
         database.obtenerSeccion('mapeo_rubros')
       ]);
 
-      if (Array.isArray(dataTransacciones)) setTransacciones(dataTransacciones.reverse());
+      if (Array.isArray(dataTransacciones)) setTransacciones(dataTransacciones);
       
       if (Array.isArray(dataPresupuestos)) {
         setPresupuestosBase(dataPresupuestos);
-        
-        // 🧠 PARSER DE COLUMNAS C Y D: Extrae canales y montos vigentes en caliente
         const mapaSaldosDetectados = {};
         const metodosDetectados = [];
 
@@ -51,7 +109,6 @@ export default function Finanzas({refreshTrigger}) {
           if (fila.Metodos_Pago && fila.Metodos_Pago.trim() !== "") {
             const nombreMetodo = fila.Metodos_Pago.trim();
             const saldoMetodo = parseFloat(fila.Saldo_Actual?.toString().replace(/[$,\s]/g, '')) || 0;
-            
             mapaSaldosDetectados[nombreMetodo] = saldoMetodo;
             metodosDetectados.push(nombreMetodo);
           }
@@ -60,10 +117,8 @@ export default function Finanzas({refreshTrigger}) {
         setSaldosCuentas(mapaSaldosDetectados);
         if (metodosDetectados.length > 0) {
           setListaMetodos(metodosDetectados);
-          
-          // Pre-seleccionar el primer método de pago dinámico que tenga saldo > 0
           const primerMetodoConSaldo = metodosDetectados.find(m => (mapaSaldosDetectados[m] || 0) > 0) || metodosDetectados[0];
-          setForm(prev => ({ ...prev, metodo_pago: primerMetodoConSaldo }));
+          setForm(prev => ({ ...prev, metodo_pago: prev.metodo_pago || primerMetodoConSaldo }));
         }
       }
       
@@ -78,7 +133,7 @@ export default function Finanzas({refreshTrigger}) {
         setMapaRubrosAMacro(mapaConstruido);
         const rubrosDisponibles = Object.keys(mapaConstruido);
         if (rubrosDisponibles.length > 0) {
-          setForm(prev => ({ ...prev, rubro: rubrosDisponibles[0] }));
+          setForm(prev => ({ ...prev, rubro: prev.rubro || rubrosDisponibles[0] }));
         }
       }
     } catch (error) {
@@ -97,16 +152,20 @@ export default function Finanzas({refreshTrigger}) {
   };
 
   // =========================================================================
-  //  💾 DESPACHADORES DE ESCRITURA (POST)
+  //  💾 PROCESADORES DE ESCRITURA (POST)
   // =========================================================================
   const ejecutarGuardar = async (e) => {
     e.preventDefault();
     if (!form.importe || !form.descripcion.trim()) return alert("Completa los campos requeridos");
 
     setGuardando(true);
+    
+    const importeNumerico = Math.abs(parseFloat(form.importe));
+    const finalImporte = form.tipo === 'INGRESO' ? -importeNumerico : importeNumerico;
+
     const payload = {
       fecha: new Date().toLocaleDateString('es-MX'),
-      importe: parseFloat(form.importe),
+      importe: finalImporte, 
       descripcion: form.descripcion.toUpperCase().trim(),
       metodo_pago: form.metodo_pago,
       rubro: form.rubro
@@ -114,11 +173,16 @@ export default function Finanzas({refreshTrigger}) {
 
     setTransacciones(prev => [payload, ...prev]);
     setModalRegistro(false);
-    setPaginaActual(1); // Inyección directa a pág 1 para feedback inmediato
+    setPaginaActual(1);
     
     await database.guardarDatos('guardarTransaccion', payload);
     
-    setForm(prev => ({ ...prev, importe: "", descripcion: "" }));
+    const saldoAnterior = saldosCuentas[form.metodo_pago] || 0;
+    const nuevoSaldo = saldoAnterior - finalImporte; 
+    
+    await database.guardarDatos('actualizarSaldos', { [form.metodo_pago]: nuevoSaldo });
+
+    setForm(prev => ({ ...prev, importe: "", descripcion: "", tipo: "GASTO" }));
     setGuardando(false);
     cargarDatos();
   };
@@ -126,10 +190,7 @@ export default function Finanzas({refreshTrigger}) {
   const ejecutarActualizarSaldos = async (e) => {
     e.preventDefault();
     setGuardando(true);
-
-    // Manda el mapa completo con las actualizaciones de saldo al doPost de Apps Script
     await database.guardarDatos('actualizarSaldos', saldosCuentas);
-    
     setModalSaldos(false);
     setGuardando(false);
     cargarDatos();
@@ -142,9 +203,10 @@ export default function Finanzas({refreshTrigger}) {
   }
 
   // =========================================================================
-  //  🧠 MOTOR DE PROCESAMIENTO FINANCIERO CRUCIAL (ANÁLISIS DE LIQUIDEZ)
+  //  🧠 MOTOR DE PROCESAMIENTO UNIFICADO CON VENTANA FLEXIBLE (PROSPECTOS)
   // =========================================================================
   let gastoGlobal = 0;
+  let ingresosDelPeriodo = 0; 
   let presupuestoGlobalEstatico = 0;
   let totalDeudaMitigada = 0;
   let compromisosCriticosAsignados = 0;
@@ -154,84 +216,163 @@ export default function Finanzas({refreshTrigger}) {
   const macroEstructura = {};
   const macrosObligatorias = ["Facturas / Vivienda", "Servicios / Internet", "Educacion"];
 
-  // 1. Inicializar macros utilizando asignaciones quincenales (Columnas A y B)
+  // 1. Inicializar macros fijas de la hoja
   presupuestosBase.forEach(p => {
     const lim = parseFloat(p.Asignacion_Quincenal?.toString().replace(/[$,\s]/g, '')) || 0;
     const macroNombre = p.Categoria_Macro;
     
-    if (macroNombre) {
+    if (macroNombre && !macroNombre.includes("Saldo_Actual")) {
       macroEstructura[macroNombre] = { asignado: lim, gastado: 0, rubros: {} };
       presupuestoGlobalEstatico += lim;
       if (macrosObligatorias.includes(macroNombre)) compromisosCriticosAsignados += lim;
     }
   });
 
-  Object.values(mapaRubrosAMacro).forEach(macro => {
-    if (!macroEstructura[macro]) {
-      macroEstructura[macro] = { asignado: 0, gastado: 0, rubros: {} };
-    }
-  });
-
-  // 2. Clasificar, acumular y sanitizar transacciones reales descargadas
-  transacciones.forEach(t => {
-    const importeCrudo = t.Importe || t.importe || "0";
-    const imp = parseFloat(importeCrudo.toString().replace(/[$,\s\-]/g, '')) || 0;
-    gastoGlobal += imp;
-
-    const metodoActual = t['Metodo de pago'] || t.metodo_pago || "Efectivo";
-    gastosPorMetodo[metodoActual] = (gastosPorMetodo[metodoActual] || 0) + imp;
-
-    const rubroActual = t.Rubro || t.rubro || "Extras";
+  // 2. Procesar y estandarizar transacciones aplicando ventana flexible a TODO el día de corte
+  const transaccionesFiltradasYProcesadas = transacciones.map(t => {
+    const fechaFila = t.Fecha || t.fecha || "";
+    const rubroActual = (t.Rubro || t.rubro || "Extras").trim();
     const macroAsignada = mapaRubrosAMacro[rubroActual] || "Extras";
+    const importeCrudo = t.Importe || t.importe || "0";
+    
+    const impLimpio = Math.abs(parseFloat(importeCrudo.toString().replace(/[$,\s\-()]/g, ''))) || 0;
+    let qIdCalculado = parsearFechaAQuincenaId(fechaFila);
 
-    if (!macroEstructura[macroAsignada]) {
-      macroEstructura[macroAsignada] = { asignado: 0, gastado: 0, rubros: {} };
+    // 🚀 VENTANA FLEXIBLE UNIFICADA: Si cualquier movimiento ocurre al cierre de mes, pertenece al flujo de la nueva quincena
+    if (fechaFila) {
+      const partes = fechaFila.includes('-') ? fechaFila.split('-') : fechaFila.split('/');
+      let dia = partes[0].length === 4 ? Number(partes[2]) : Number(partes[0]);
+      let mes = partes[0].length === 4 ? Number(partes[1]) : Number(partes[1]);
+      let año = partes[0].length === 4 ? Number(partes[0]) : Number(partes[2]);
+
+      // Si el movimiento ocurre entre el 27 y el 31 en una quincena teórica Q2, pertenece a la Q1 del mes SIGUIENTE
+      if (dia >= 27 && qIdCalculado.includes("Q2")) {
+        let proximoMes = mes + 1; let proximoAño = año;
+        if (proximoMes > 12) { proximoMes = 1; proximoAño += 1; }
+        qIdCalculado = `${proximoAño}-${String(proximoMes).padStart(2, '0')}-Q1`;
+      } 
+      // Si ocurre entre el 12 y 15 en una quincena teórica Q1, pertenece a la Q2 de ESTE mismo mes
+      else if (dia >= 12 && dia <= 15 && qIdCalculado.includes("Q1")) {
+        qIdCalculado = `${año}-${String(mes).padStart(2, '0')}-Q2`;
+      }
     }
 
-    macroEstructura[macroAsignada].gastado += imp;
-    macroEstructura[macroAsignada].rubros[rubroActual] = (macroEstructura[macroAsignada].rubros[rubroActual] || 0) + imp;
+    return {
+      ...t,
+      qIdFinal: qIdCalculado,
+      montoAbsoluto: impLimpio,
+      rubroFinal: rubroActual,
+      macroFinal: macroAsignada
+    };
+  }).filter(t => t.qIdFinal === periodoSeleccionado);
 
-    if (macroAsignada === "Deudas / Tarjetas") totalDeudaMitigada += imp;
-    if (macrosObligatorias.includes(macroAsignada)) compromisosCriticosGastados += imp;
+  // 3. Ejecutar clasificaciones agregadas para el periodo activo (Corregido)
+  transaccionesFiltradasYProcesadas.forEach(t => {
+    // Si es una nómina, se acumula en ingresos y se corta el flujo
+    if (t.rubroFinal.toUpperCase() === "SUELDO") {
+      ingresosDelPeriodo += t.montoAbsoluto;
+      return; 
+    }
+
+    // Si no es sueldo, es un gasto corriente legítimo del periodo
+    gastoGlobal += t.montoAbsoluto;
+    const metodoActual = t['Metodo de pago'] || t.metodo_pago || "Efectivo";
+    gastosPorMetodo[metodoActual] = (gastosPorMetodo[metodoActual] || 0) + t.montoAbsoluto;
+
+    if (!macroEstructura[t.macroFinal]) {
+      macroEstructura[t.macroFinal] = { asignado: 0, gastado: 0, rubros: {} };
+    }
+
+    // Aquí sumamos el gasto real a la categoría macro
+    macroEstructura[t.macroFinal].gastado += t.montoAbsoluto;
+    macroEstructura[t.macroFinal].rubros[t.rubroFinal] = (macroEstructura[t.macroFinal].rubros[t.rubroFinal] || 0) + t.montoAbsoluto;
+
+    if (t.macroFinal === "Deudas / Tarjetas") totalDeudaMitigada += t.montoAbsoluto;
+    if (macrosObligatorias.includes(t.macroFinal)) compromisosCriticosGastados += t.montoAbsoluto;
   });
 
-  // 🚀 CÁLCULO ARITMÉTICO DEL EFECTIVO REAL FÍSICO (SUMA DINÁMICA DE TUS 4 CONCEPTOS EN C Y D)
-  const efectivoFisicoTotal = (saldosCuentas["Debito BBVA (E)"] || 0) + 
-                              (saldosCuentas["Debito BBVA (V)"] || 0) + 
-                              (saldosCuentas["Debito Santander (V)"] || 0) + 
-                              (saldosCuentas["Spin"] || 0) + 
-                              (saldosCuentas["TDCSantander"] || 0) + 
-                              (saldosCuentas["TDCLike U"] || 0) + 
-                              (saldosCuentas["TDCNU"] || 0) + 
-                              (saldosCuentas["TDCE"] || 0) + 
-                              (saldosCuentas["Efectivale"] || 0) + 
-                              (saldosCuentas["TDCV"] || 0) + 
-                              (saldosCuentas["Si vale"] || 0) + 
-                              (saldosCuentas["Efectivo"] || 0);
+  const efectivoFisicoTotal = Object.values(saldosCuentas).reduce((acc, curr) => acc + curr, 0);
+  const bolsaCompromisosPendientes = compromisosCriticosAsignados - compromisosCriticosGastados;
+  const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].assigned || macroEstructura["Deudas / Tarjetas"].asignado : 0;
+  const bolsaDisponibleFlujoLibre = (presupuestoGlobalEstatico - deudasAsignadas) - (gastoGlobal - totalDeudaMitigada);
+
+  // =========================================================================
+  //  🔍 CONCILIADOR INDIVIDUAL CUENTA POR CUENTA (Corregido y unificado)
+  // =========================================================================
+  const ingresosPorMetodo = {};
+  
+  transaccionesFiltradasYProcesadas.forEach(t => {
+    if (t.rubroFinal.toUpperCase() === "SUELDO") {
+      const metodo = t['Metodo de pago'] || t.metodo_pago || "Efectivo";
+      ingresosPorMetodo[metodo] = (ingresosPorMetodo[metodo] || 0) + t.montoAbsoluto;
+    }
+  });
+
+  // Generamos el mapa de cuentas con conciliación bilateral exacta (Fugas e Ingresos Olvidados)
+  const cuentasDescuadradas = [];
+  let totalGastosFaltantesGlobal = 0;
+
+  listaMetodos.forEach(metodo => {
+    const saldoActualEnSheet = saldosCuentas[metodo] || 0;
+    const ingresosCuenta = ingresosPorMetodo[metodo] || 0;
+    const gastosRegistradosCuenta = gastosPorMetodo[metodo] || 0;
+
+    if (ingresosCuenta > 0 || gastosRegistradosCuenta > 0) {
+      // Lo que deberías tener matemáticamente en base a las filas de la quincena
+      const saldoTeoricoQueDeberiaTener = ingresosCuenta - gastosRegistradosCuenta;
+      
+      // Calculamos la diferencia absoluta entre tu realidad física y tu flujo reportado
+      const diferenciaAbsoluta = saldoTeoricoQueDeberiaTener - saldoActualEnSheet;
+
+      if (Math.abs(diferenciaAbsoluta) > 15) {
+        totalGastosFaltantesGlobal += Math.abs(diferenciaAbsoluta);
+        
+        // Si la diferencia es positiva, te faltan registrar GASTOS
+        // Si la diferencia es negativa, te faltan registrar INGRESOS/RETIROS (Como tus $1,105.00)
+        const tipoDescuadre = diferenciaAbsoluta > 0 
+          ? "Falta Gasto" 
+          : "Falta Ingreso";
+
+        // En lugar de meter el string plano en el nombre, separamos las propiedades:
+        cuentasDescuadradas.push({ 
+          nombre: metodo, // Solo el canal limpio: "Debito BBVA (E)", "Efectivo", etc.
+          montoFaltante: Math.abs(diferenciaAbsoluta),
+          tipo: diferenciaAbsoluta > 0 ? "gasto" : "ingreso" // Mantenemos la naturaleza del descuadre
+        });
+      }
+    }
+  });
 
 
-const bolsaCompromisosPendientes = compromisosCriticosAsignados - compromisosCriticosGastados;
-const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].assigned || macroEstructura["Deudas / Tarjetas"].asignado : 0;
-
-// 🔥 FÓRMULA ANTIDESTRUCCIÓN DE LIQUIDEZ: Elimina la doble penalización por abonos aplicados
-const bolsaDisponibleFlujoLibre = (presupuestoGlobalEstatico - deudasAsignadas) - (gastoGlobal - totalDeudaMitigada);
-
-// Paginador
-const totalPaginas = Math.ceil(transacciones.length / itemsPorPagina) || 1;
-const indiceUltimoItem = paginaActual * itemsPorPagina;
-const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
-const transaccionesPaginadas = transacciones.slice(indicePrimerItem, indiceUltimoItem);
-
-return (
+  // Paginador invertido para ver siempre los últimos primero
+  const totalPaginas = Math.ceil(transaccionesFiltradasYProcesadas.length / itemsPorPagina) || 1;
+  const indiceUltimoItem = paginaActual * itemsPorPagina;
+  const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
+  const transaccionesPaginadas = [...transaccionesFiltradasYProcesadas].reverse().slice(indicePrimerItem, indiceUltimoItem);
+  
+  return (
     <div className="space-y-6 text-left p-2 bg-zinc-950 text-zinc-200 font-sans min-h-screen">
       
-      {/* HEADER CONTROLES */}
+      {/* HEADER CONTROLES Y CONTROL SELECTOR DINÁMICO */}
       <div className="border-b border-zinc-900 pb-5 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tighter uppercase italic text-slate-50 flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-sky-400 stroke-[2.5]" /> Búnker Financiero
+            <ShieldCheck className="w-6 h-6 text-emerald-400 stroke-[2.5]" /> Búnker Financiero
           </h2>
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Control de Caja Base Cero & Mapeo de Gastos Dinámicos</p>
+          <div className="mt-2 flex items-center gap-2 bg-zinc-900/80 p-1.5 border border-zinc-800 rounded-xl">
+            <span className="text-[9px] font-black uppercase text-zinc-500 pl-2">Corte:</span>
+            <select 
+              value={periodoSeleccionado}
+              onChange={(e) => { setPeriodoSeleccionado(e.target.value); setPaginaActual(1); }}
+              className="bg-zinc-950 border border-zinc-800 text-xs font-bold text-slate-200 rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              {generarOpcionesDeQuincenas().map(opcion => (
+                <option key={opcion.id} value={opcion.id}>
+                  {opcion.texto} {opcion.id === obtenerQuincenaActualId() ? "• (En Curso)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         
         <div className="flex gap-2 w-full md:w-auto">
@@ -239,65 +380,116 @@ return (
             onClick={() => setModalSaldos(true)} 
             className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center transition-all cursor-pointer"
           >
-            <Wallet className="w-3.5 h-3.5 mr-1.5 text-zinc-500" /> Ajustar Saldos Fijos
+            <Wallet className="w-3.5 h-3.5 mr-1.5 text-zinc-500" /> Ajustar Canales Fijos
           </button>
           <button 
             onClick={() => setModalRegistro(true)} 
-            className="bg-sky-400 hover:bg-sky-500 text-zinc-950 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-lg transition-all cursor-pointer"
+            className="bg-emerald-400 hover:bg-emerald-500 text-zinc-950 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-lg transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 mr-1 stroke-[3]" /> Registrar Movimiento
           </button>
         </div>
       </div>
 
-      {/* 📊 CUADRO DE MANDOS DE LIQUIDEZ QUINCENAL */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
-          <span className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Cuentas Críticas Quincena</span>
+      {/* RITMO PROPORCIONAL DE PACING DE LA QUINCENA */}
+      {periodoSeleccionado === obtenerQuincenaActualId() && (
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+          <div className="flex justify-between text-[9px] font-black uppercase tracking-wider mb-2">
+            <span className="text-zinc-400">Progreso Temporal del Periodo</span>
+            <span className="text-emerald-400">Día {progresoQuincena.actual} de {progresoQuincena.total} ({Math.round(progresoQuincena.pct)}%)</span>
+          </div>
+          <div className="w-full bg-zinc-950 border border-zinc-800 h-2 rounded-full overflow-hidden">
+            <div className="bg-emerald-400 h-full transition-all" style={{ width: `${progresoQuincena.pct}%` }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* 📊 CUADRO DE MANDOS DE LIQUIDEZ QUINCENAL AMPLIADO */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* CONTROL DE INGRESOS */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-500">
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Ingresos Obtenidos Q.</span>
           <div className="mt-2">
-            <div className="text-xl font-black text-slate-200 tabular-nums">${bolsaCompromisosPendientes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Presupuesto comprometido por liquidar</p>
+            <div className="text-xl font-black text-emerald-400 tabular-nums">
+              ${ingresosDelPeriodo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Nómina total capturada en la quincena</p>
+          </div>
+        </div>
+
+        {/* 🚨 TARJETA DETECTOR DE GASTOS OLVIDADOS */}
+        <div className={`border rounded-xl p-4 flex flex-col justify-between transition-all ${totalGastosFaltantesGlobal > 10 ? 'bg-red-950/20 border-red-900/60 border-t-2 border-t-red-500 animate-pulse' : 'bg-zinc-900/40 border-zinc-800'}`}>
+          <span className={`text-[9px] font-black uppercase tracking-wider ${totalGastosFaltantesGlobal > 10 ? 'text-red-400' : 'text-zinc-500'}`}>
+            {totalGastosFaltantesGlobal > 10 ? '⚠️ Gastos Sin Registrar' : 'Cuentas Cuadradas'}
+          </span>
+          <div className="mt-2 space-y-1">
+            <div className={`text-xl font-black tabular-nums ${totalGastosFaltantesGlobal > 10 ? 'text-red-400' : 'text-zinc-400'}`}>
+              ${totalGastosFaltantesGlobal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </div>
+            
+            {cuentasDescuadradas.length > 0 ? (
+              <div className="pt-2 border-t border-zinc-800/60 space-y-1">
+                {cuentasDescuadradas.map(c => {
+                  const esGasto = c.tipo === "gasto";
+                  return (
+                    <div key={c.nombre} className="text-[10px] font-black uppercase flex justify-between items-center tracking-tight py-0.5">
+                      {/* Nombre a la izquierda */}
+                      <span className="text-zinc-400">{c.nombre}</span>
+                      
+                      {/* Monto coloreado a la derecha con espacio en el signo $ */}
+                      <span className={`font-mono font-bold ${esGasto ? 'text-red-400' : 'text-emerald-400'}`}>
+                        $ {c.montoFaltante.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[8px] text-zinc-500 uppercase font-bold tracking-tight">
+                Tu dinero físico coincide con tu flujo
+              </p>
+            )}
           </div>
         </div>
 
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
-            <Flame className="w-3 h-3 text-emerald-400 animate-pulse" /> Caja de Seguridad Libre
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+            <Flame className="w-3 h-3 text-emerald-400 animate-pulse" /> Caja de Seguridad Libre (Flujo)
           </span>
           <div className="mt-2">
             <div className={`text-xl font-black tabular-nums ${bolsaDisponibleFlujoLibre < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               ${bolsaDisponibleFlujoLibre.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Fondos netos reales de supervivencia</p>
+            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Fondos netos ideales de supervivencia</p>
           </div>
         </div>
 
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-sky-500">
-          <span className="text-[9px] font-black uppercase tracking-wider text-sky-400">Total Efectivo Real Físico</span>
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-emerald-400">
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Total Búnker Real Bancos/Efectivo</span>
           <div className="mt-2">
-            <div className="text-xl font-black text-sky-400 tabular-nums">${efectivoFisicoTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Suma de carteras y resguardo físico</p>
+            <div className="text-xl font-black text-emerald-400 tabular-nums">${efectivoFisicoTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Suma acumulada real en columnas de saldos</p>
           </div>
         </div>
       </div>
 
-      {/* 💳 REJILLA DE SALDOS EN VIVO DESDE COLUMNAS C Y D (SOLO > $0) */}
+      {/* CUENTAS VIGENTES */}
       <div>
-        <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Fondos Vigentes por Canal</h3>
+        <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Saldos de Canales de Pago</h3>
         <div className="flex flex-wrap gap-2">
           {listaMetodos
-            .filter(metodo => (saldosCuentas[metodo] || 0) > 0) // 🧠 Filtramos las cuentas vacías o en ceros
+            .filter(metodo => (saldosCuentas[metodo] || 0) > 0)
             .map(metodo => {
               const saldoActual = saldosCuentas[metodo] || 0;
-              const gastadoQuincena = gastosPorMetodo[metodo] || 0; // Corregida la referencia de variable
-            
+              const gastadoQuincena = gastosPorMetodo[metodo] || 0;
             return (
               <div key={metodo} className="flex items-center bg-zinc-950 border border-zinc-800/80 rounded-lg px-3 py-1.5 shadow-sm">
-                <CreditCard className="w-3 h-3 text-sky-400 mr-2" />
+                <CreditCard className="w-3 h-3 text-emerald-400 mr-2" />
                 <span className="text-[9px] font-black uppercase text-zinc-400 mr-2 tracking-tight">{metodo}:</span>
                 <span className="text-xs font-black text-slate-100 tabular-nums">
                   ${saldoActual.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                  <span className="text-[8px] text-zinc-600 font-black ml-1.5 uppercase tracking-wider">(Ejercido: ${gastadoQuincena.toFixed(2)})</span>
+                  <span className="text-[8px] text-zinc-600 font-black ml-1.5 uppercase tracking-wider">(Gastado Periodo: ${gastadoQuincena.toFixed(2)})</span>
                 </span>
               </div>
             );
@@ -308,9 +500,9 @@ return (
       {/* CORE CONTROL: MACROS & BITÁCORA */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
-        {/* COLUMNA IZQUIERDA: CONTROL DE MACROS */}
+        {/* SEMÁFORO DE PACING */}
         <div className="xl:col-span-1 space-y-4">
-          <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Salud del Presupuesto por Macro</h3>
+          <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Métricas de Ritmo Quincenal</h3>
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 max-h-[600px] overflow-y-auto space-y-3 custom-scrollbar">
             {Object.keys(macroEstructura)
               .filter(macro => macroEstructura[macro].gastado > 0 || macroEstructura[macro].asignado > 0)
@@ -321,36 +513,44 @@ return (
                 const estaAbierto = !!macrosAbiertas[macro];
 
                 const sobregirado = disponible < 0;
-                const liquidadoExacto = disponible === 0 && item.asignado > 0;
-                const esCuentaCritica = macrosObligatorias.includes(macro);
-                const estaSaldadoYArchivado = esCuentaCritica && liquidadoExacto;
+                const gastoIdealProporcional = (item.asignado / 100) * progresoQuincena.pct;
+                const vaAdelantadoAlDia = item.gastado > gastoIdealProporcional && (item.gastado - gastoIdealProporcional) > 40;
 
-                const colorBarra = sobregirado 
-                  ? "bg-red-500" 
-                  : estaSaldadoYArchivado 
-                    ? "bg-zinc-700" 
-                    : macro === "Deudas / Tarjetas" ? "bg-blue-500" : porcentajeBarra > 85 ? "bg-orange-500" : "bg-emerald-400";
+                let colorBarra = "bg-emerald-400";
+                let statusBadgeText = "Estable";
+                let badgeStyle = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
 
-                const colorTextoDisponible = sobregirado 
-                  ? "text-red-400 font-black animate-pulse" 
-                  : estaSaldadoYArchivado ? "text-zinc-500 font-bold" : macro === "Deudas / Tarjetas" ? "text-blue-400 font-bold" : "text-zinc-400 font-bold";
+                if (sobregirado) {
+                  colorBarra = "bg-red-500";
+                  statusBadgeText = "Sobregiro";
+                  badgeStyle = "bg-red-500/20 text-red-400 border-red-500/30";
+                } else if (vaAdelantadoAlDia && periodoSeleccionado === obtenerQuincenaActualId()) {
+                  colorBarra = "bg-orange-400";
+                  statusBadgeText = "Gasto Rápido";
+                  badgeStyle = "bg-orange-500/20 text-orange-400 border-orange-500/30";
+                } else if (porcentajeBarra > 85) {
+                  colorBarra = "bg-amber-500";
+                  statusBadgeText = "Límite Crítico";
+                  badgeStyle = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+                }
 
                 return (
-                  <div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950 ${sobregirado ? 'border-red-900/60' : estaSaldadoYArchivado ? 'border-zinc-800/40 opacity-40' : 'border-zinc-800'}`}>  
+                  <div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950 ${sobregirado ? 'border-red-900/60' : 'border-zinc-800'}`}>  
                     <div onClick={() => toggleMacro(macro)} className="p-3 flex justify-between items-start select-none cursor-pointer hover:bg-zinc-900/50">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
-                          {estaAbierto ? <ChevronDown className="w-3.5 h-3.5 text-sky-400" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
-                          <span className={`text-[10px] font-black uppercase tracking-tight ${estaSaldadoYArchivado ? 'line-through text-zinc-500' : 'text-slate-200'}`}>{macro}</span>
-                          {sobregirado && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                          {estaSaldadoYArchivado && <CheckCircle2 className="w-3 h-3 text-zinc-500" />}
+                          {estaAbierto ? <ChevronDown className="w-3.5 h-3.5 text-emerald-400" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
+                          <span className="text-[10px] font-black uppercase tracking-tight text-slate-200">{macro}</span>
+                          <span className={`px-1.5 py-0.5 text-[7px] font-bold rounded-full border uppercase tracking-wider ${badgeStyle}`}>
+                            {statusBadgeText}
+                          </span>
                         </div>
-                        <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider pl-5">Asignado: ${item.asignado.toFixed(2)}</div>
+                        <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider pl-5">Tope Q: ${item.asignado.toFixed(2)}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-xs font-black text-slate-50 tabular-nums">${item.gastado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-                        <div className={`text-[9px] uppercase tracking-tighter ${colorTextoDisponible}`}>
-                          {sobregirado ? `Exceso: ` : estaSaldadoYArchivado ? `Saldado ` : `Disp: `}${estaSaldadoYArchivado ? '' : Math.abs(disponible).toFixed(2)}
+                        <div className={`text-[9px] uppercase tracking-tighter ${sobregirado ? 'text-red-400 font-bold' : 'text-zinc-500'}`}>
+                          {sobregirado ? `Exceso: ` : `Disp: `}${Math.abs(disponible).toFixed(2)}
                         </div>
                       </div>
                     </div>
@@ -377,14 +577,14 @@ return (
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: TABLA HISTORIAL */}
+        {/* HUELLA DE TRANSACCIONES */}
         <div className="xl:col-span-2 space-y-4">
-          <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Bitácora de Huella Financiera</h3>
+          <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Huella de Transacciones de este Periodo</h3>
           <div className="bg-zinc-900 shadow-2xl rounded-xl overflow-hidden border border-zinc-800">
             <div className="overflow-x-auto">
               
               <div className="flex justify-between items-center bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-wider">
-                <span className="text-zinc-500 italic">Mostrando {indicePrimerItem + 1}-{Math.min(indiceUltimoItem, transacciones.length)} de {transacciones.length} registros</span>
+                <span className="text-zinc-500 italic">Mostrando {transaccionesFiltradasYProcesadas.length > 0 ? indicePrimerItem + 1 : 0}-{Math.min(indiceUltimoItem, transaccionesFiltradasYProcesadas.length)} de {transaccionesFiltradasYProcesadas.length} registros</span>
                 <div className="flex items-center gap-4">
                   <span className="text-zinc-400">Pág. <span className="text-slate-100 tabular-nums">{paginaActual}</span> de <span className="text-slate-100 tabular-nums">{totalPaginas}</span></span>
                   <div className="flex gap-1">
@@ -405,11 +605,10 @@ return (
                 </thead>
                 <tbody className="divide-y divide-zinc-800 text-left">
                   {transaccionesPaginadas.length > 0 ? transaccionesPaginadas.map((t, idx) => {
-                    const rubro = t.Rubro || t.rubro || "Extras";
-                    const macro = mapaRubrosAMacro[rubro] || "Extras";
-                    const importeCrudo = t.Importe || t.importe || "0";
-                    const importeLimpio = parseFloat(importeCrudo.toString().replace(/[$,\s\-]/g, '')) || 0;
+                    const rubro = t.rubroFinal;
+                    const macro = t.macroFinal;
                     const esDeuda = macro === "Deudas / Tarjetas";
+                    const esSueldo = rubro.toUpperCase() === "SUELDO";
 
                     return (
                       <tr key={idx} className="hover:bg-zinc-800/40 transition-colors">
@@ -417,18 +616,18 @@ return (
                           <div className="text-xs font-black text-slate-100 uppercase tracking-tight leading-tight">{t.Descripción || t.descripcion}</div>
                           <div className="text-[8px] font-bold text-zinc-600 font-mono mt-0.5">{t.Fecha || t.fecha}</div>
                         </td>
-                        <td className="p-4 text-[10px] font-black text-zinc-300 uppercase tracking-tight">{macro}</td>
+                        <td className="p-4 text-transform: uppercase text-[10px] font-black text-zinc-300 tracking-tight">{esSueldo ? "INGRESOS" : macro}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase bg-zinc-950 border border-zinc-800 italic ${esDeuda ? 'text-blue-400' : 'text-sky-400'}`}>{rubro}</span>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase bg-zinc-950 border border-zinc-800 italic ${esSueldo ? 'text-emerald-400 border-emerald-500/30' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>{rubro}</span>
                         </td>
-                        <td className={`p-4 text-right text-xs font-black tabular-nums ${esDeuda ? 'text-blue-400' : 'text-red-400'}`}>
-                          {esDeuda ? '+$' : '-$'}{importeLimpio.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        <td className={`p-4 text-right text-xs font-black tabular-nums ${esSueldo ? 'text-emerald-400' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>
+                          {esSueldo ? '+$' : esDeuda ? '-$' : '-$'}{t.montoAbsoluto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     );
                   }) : (
                     <tr>
-                      <td colSpan="4" className="p-10 text-center text-zinc-600 font-bold uppercase text-xs">Cero registros vinculados en Google Sheets</td>
+                      <td colSpan="4" className="p-10 text-center text-zinc-600 font-bold uppercase text-xs">Cero registros vinculados en esta quincena</td>
                     </tr>
                   )}
                 </tbody>
@@ -439,10 +638,10 @@ return (
 
       </div>
 
-      {/* MODAL DE REGISTRO INDEPENDIENTE */}
+      {/* MODAL DE REGISTRO */}
       {modalRegistro && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-left border border-zinc-800 border-t-4 border-t-sky-400">
+          <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-left border border-zinc-800 border-t-4 border-t-emerald-400">
             <div className="bg-zinc-950 p-4 text-slate-50 font-black uppercase text-[10px] tracking-widest flex justify-between border-b border-zinc-800">
               Inyectar Registro Financiero
               <button onClick={() => setModalRegistro(false)} className="cursor-pointer text-zinc-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
@@ -450,30 +649,55 @@ return (
             
             <form onSubmit={ejecutarGuardar} className="p-6 space-y-4">
               <div>
-                <label className="block className bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-bold text-slate-50 uppercase outline-none focus:border-sky-400" />
-                <input type="text" required placeholder="Ej. SUPER DE LA SEMANA" value={form.descripcion} onChange={(e) => setForm(prev => ({...prev, descripcion: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-bold text-slate-50 uppercase outline-none focus:border-sky-400" />
+                <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1.5">Naturaleza del Flujo</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, tipo: 'GASTO', rubro: listaRubros[0] || "" }))}
+                    className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${form.tipo === 'GASTO' ? 'bg-red-500/10 text-red-400 border-red-500' : 'bg-zinc-950 text-zinc-500 border-zinc-800'}`}
+                  >
+                    🔴 Gasto Corriente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, tipo: 'INGRESO', rubro: 'SUELDO', descripcion: 'NÓMINA QUINCENAL' }))}
+                    className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${form.tipo === 'INGRESO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500' : 'bg-zinc-950 text-zinc-500 border-zinc-800'}`}
+                  >
+                    🟢 Ingreso / Nómina
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Concepto / Descripción</label>
+                <input type="text" required placeholder="Ej. SUPER DE LA SEMANA" value={form.descripcion} onChange={(e) => setForm(prev => ({...prev, descripcion: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-bold text-slate-50 uppercase outline-none focus:border-emerald-400" />
               </div>
               <div>
                 <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Importe ($)</label>
-                <input type="number" step="0.01" required placeholder="0.00" value={form.importe} onChange={(e) => setForm(prev => ({...prev, importe: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-bold text-slate-50 uppercase outline-none focus:border-sky-400 tabular-nums" />
+                <input type="number" step="0.01" required placeholder="0.00" value={form.importe} onChange={(e) => setForm(prev => ({...prev, importe: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-bold text-slate-50 uppercase outline-none focus:border-emerald-400 tabular-nums" />
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Sub-Rubro Especifico</label>
-                  <select value={form.rubro} onChange={(e) => setForm(prev => ({...prev, rubro: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-50 uppercase outline-none focus:border-sky-400 cursor-pointer">
-                    {listaRubros.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Sub-Rubro</label>
+                  {form.tipo === 'INGRESO' ? (
+                    <select className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-black text-emerald-400 uppercase outline-none focus:border-emerald-400">
+                      <option value="SUELDO">SUELDO</option>
+                    </select>
+                  ) : (
+                    <select value={form.rubro} onChange={(e) => setForm(prev => ({...prev, rubro: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-50 uppercase outline-none focus:border-emerald-400 cursor-pointer">
+                      {listaRubros.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Canal Financiero</label>
-                  <select value={form.metodo_pago} onChange={(e) => setForm(prev => ({...prev, metodo_pago: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-50 uppercase outline-none focus:border-sky-400 cursor-pointer">
-                    {listaMetodos
-                      .filter(m => (saldosCuentas[m] || 0) > 0) // 🧠 Filtrado dinámico en selector
-                      .map(m => <option key={m} value={m}>{m}</option>)}
+                  <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Canal de Destino/Origen</label>
+                  <select value={form.metodo_pago} onChange={(e) => setForm(prev => ({...prev, metodo_pago: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-50 uppercase outline-none focus:border-emerald-400 cursor-pointer">
+                    {listaMetodos.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
               </div>
-              <button type="submit" disabled={guardando} className="w-full bg-sky-400 hover:bg-sky-500 text-slate-950 py-3 rounded-lg text-[10px] font-black uppercase shadow-lg cursor-pointer disabled:opacity-50 transition-all pt-4">
+              <button type="submit" disabled={guardando} className="w-full bg-emerald-400 hover:bg-emerald-500 text-zinc-950 py-3 rounded-lg text-[10px] font-black uppercase shadow-lg cursor-pointer disabled:opacity-50 transition-all mt-2">
                 {guardando ? 'Sincronizando con Google Sheets...' : 'Ejecutar Transacción'}
               </button>
             </form>
@@ -481,7 +705,7 @@ return (
         </div>
       )}
 
-      {/* 🚀 MODAL DINÁMICO PARA ACTUALIZAR SALDOS EN COLUMNAS C Y D */}
+      {/* MODAL AJUSTAR SALDOS */}
       {modalSaldos && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-left border border-zinc-800 border-t-4 border-t-zinc-400">
@@ -491,7 +715,7 @@ return (
             </div>
             
             <form onSubmit={ejecutarActualizarSaldos} className="p-6 space-y-4 max-h-[450px] overflow-y-auto custom-scrollbar">
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Modifica los fondos corrientes extraídos de tu columna C de la hoja:</p>
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Modifica los fondos corrientes de tu columna C de la hoja:</p>
               
               <div className="space-y-3">
                 {Object.keys(saldosCuentas).map(metodo => (
