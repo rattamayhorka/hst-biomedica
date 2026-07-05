@@ -27,18 +27,35 @@ export default function Finanzas({ refreshTrigger }) {
     descripcion: "",
     metodo_pago: "", 
     rubro: "",
-    tipo: "GASTO" // GASTO o INGRESO (Para Opción A)
+    tipo: "GASTO" // GASTO o INGRESO
   });
 
   // =========================================================================
-  //  📅 MOTOR DE FECHAS Y QUINCENAS AUTOMÁTICO (PERPETUO)
+  //  📅 MOTOR DE FECHAS Y QUINCENAS CONFORME A DÍAS DE PAGO (15 Y 30)
   // =========================================================================
   function obtenerQuincenaActualId() {
     const hoy = new Date();
     const año = hoy.getFullYear();
-    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-    const quincena = hoy.getDate() <= 15 ? 'Q1' : 'Q2';
-    return `${año}-${mes}-${quincena}`;
+    const mes = hoy.getMonth() + 1;
+    const dia = hoy.getDate();
+
+    let añoFinal = año;
+    let mesFinal = mes;
+    let quincena = 'Q1';
+
+    if (dia < 15) {
+      quincena = 'Q1';
+    } else if (dia >= 15 && dia < 30) {
+      quincena = 'Q2';
+    } else {
+      quincena = 'Q1';
+      mesFinal = mes + 1;
+      if (mesFinal > 12) {
+        mesFinal = 1;
+        añoFinal += 1;
+      }
+    }
+    return `${añoFinal}-${String(mesFinal).padStart(2, '0')}-${quincena}`;
   }
 
   function parsearFechaAQuincenaId(fechaStr) {
@@ -50,20 +67,40 @@ export default function Finanzas({ refreshTrigger }) {
     } else { 
       [dia, mes, año] = partes.map(Number);
     }
-    const qId = dia <= 15 ? 'Q1' : 'Q2';
-    return `${año}-${String(mes).padStart(2, '0')}-${qId}`;
+    
+    let añoFinal = año;
+    let mesFinal = mes;
+    let qId = 'Q1';
+
+    if (dia < 15) {
+      qId = 'Q1';
+    } else if (dia >= 15 && dia < 30) {
+      qId = 'Q2';
+    } else {
+      qId = 'Q1';
+      mesFinal = mes + 1;
+      if (mesFinal > 12) {
+        mesFinal = 1;
+        añoFinal += 1;
+      }
+    }
+    return `${añoFinal}-${String(mesFinal).padStart(2, '0')}-${qId}`;
   }
 
   function calcularProgresoTiempoQuincena() {
     const hoy = new Date();
     const dia = hoy.getDate();
-    if (dia <= 15) {
-      return { actual: dia, total: 15, pct: (dia / 15) * 100 };
+    
+    if (dia < 15) {
+      return { actual: dia, total: 14, pct: (dia / 14) * 100 };
+    } else if (dia >= 15 && dia < 30) {
+      const diaActualQ2 = dia - 14;
+      return { actual: diaActualQ2, total: 15, pct: (diaActualQ2 / 15) * 100 };
     } else {
-      const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-      const diasEnSegundaQ = ultimoDia - 15;
-      const diaActualSegundaQ = dia - 15;
-      return { actual: diaActualSegundaQ, total: diasEnSegundaQ, pct: (diaActualSegundaQ / diasEnSegundaQ) * 100 };
+      const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+      const diaActualNuevaQ1 = dia === 30 ? 1 : 2;
+      const totalDiasNuevaQ1 = 14 + (ultimoDiaMes - 30);
+      return { actual: diaActualNuevaQ1, total: totalDiasNuevaQ1, pct: (diaActualNuevaQ1 / totalDiasNuevaQ1) * 100 };
     }
   }
 
@@ -78,8 +115,8 @@ export default function Finanzas({ refreshTrigger }) {
       const mesNum = String(fechaIterada.getMonth() + 1).padStart(2, '0');
       const mesNombre = mesesEtiquetas[fechaIterada.getMonth()];
 
-      opciones.push({ id: `${año}-${mesNum}-Q1`, texto: `${mesNombre} ${año} - 1ra Quincena (1 al 15)` });
-      opciones.push({ id: `${año}-${mesNum}-Q2`, texto: `${mesNombre} ${año} - 2da Quincena (16 al fin)` });
+      opciones.push({ id: `${año}-${mesNum}-Q1`, texto: `${mesNombre} ${año} - Pago del 30 (Días 30 al 14)` });
+      opciones.push({ id: `${año}-${mesNum}-Q2`, texto: `${mesNombre} ${año} - Pago del 15 (Días 15 al 29)` });
     }
     return opciones.reverse();
   }
@@ -196,17 +233,18 @@ export default function Finanzas({ refreshTrigger }) {
     cargarDatos();
   };
 
-  const listaRubros = Object.keys(mapaRubrosAMacro);
+  const listadoRubros = Object.keys(mapaRubrosAMacro);
 
   if (cargando) {
     return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   // =========================================================================
-  //  🧠 MOTOR DE PROCESAMIENTO UNIFICADO CON VENTANA FLEXIBLE (PROSPECTOS)
+  //  🧠 MOTOR DE PROCESAMIENTO UNIFICADO
   // =========================================================================
   let gastoGlobal = 0;
-  let ingresosDelPeriodo = 0; 
+  let ingresosSueldo = 0;
+  let ingresosSobrante = 0;
   let presupuestoGlobalEstatico = 0;
   let totalDeudaMitigada = 0;
   let compromisosCriticosAsignados = 0;
@@ -228,7 +266,7 @@ export default function Finanzas({ refreshTrigger }) {
     }
   });
 
-  // 2. Procesar y estandarizar transacciones aplicando ventana flexible a TODO el día de corte
+  // 2. Procesar transacciones directo mediante segmentación limpia
   const transaccionesFiltradasYProcesadas = transacciones.map(t => {
     const fechaFila = t.Fecha || t.fecha || "";
     const rubroActual = (t.Rubro || t.rubro || "Extras").trim();
@@ -236,26 +274,7 @@ export default function Finanzas({ refreshTrigger }) {
     const importeCrudo = t.Importe || t.importe || "0";
     
     const impLimpio = Math.abs(parseFloat(importeCrudo.toString().replace(/[$,\s\-()]/g, ''))) || 0;
-    let qIdCalculado = parsearFechaAQuincenaId(fechaFila);
-
-    // 🚀 VENTANA FLEXIBLE UNIFICADA: Si cualquier movimiento ocurre al cierre de mes, pertenece al flujo de la nueva quincena
-    if (fechaFila) {
-      const partes = fechaFila.includes('-') ? fechaFila.split('-') : fechaFila.split('/');
-      let dia = partes[0].length === 4 ? Number(partes[2]) : Number(partes[0]);
-      let mes = partes[0].length === 4 ? Number(partes[1]) : Number(partes[1]);
-      let año = partes[0].length === 4 ? Number(partes[0]) : Number(partes[2]);
-
-      // Si el movimiento ocurre entre el 27 y el 31 en una quincena teórica Q2, pertenece a la Q1 del mes SIGUIENTE
-      if (dia >= 27 && qIdCalculado.includes("Q2")) {
-        let proximoMes = mes + 1; let proximoAño = año;
-        if (proximoMes > 12) { proximoMes = 1; proximoAño += 1; }
-        qIdCalculado = `${proximoAño}-${String(proximoMes).padStart(2, '0')}-Q1`;
-      } 
-      // Si ocurre entre el 12 y 15 en una quincena teórica Q1, pertenece a la Q2 de ESTE mismo mes
-      else if (dia >= 12 && dia <= 15 && qIdCalculado.includes("Q1")) {
-        qIdCalculado = `${año}-${String(mes).padStart(2, '0')}-Q2`;
-      }
-    }
+    const qIdCalculado = parsearFechaAQuincenaId(fechaFila);
 
     return {
       ...t,
@@ -266,15 +285,20 @@ export default function Finanzas({ refreshTrigger }) {
     };
   }).filter(t => t.qIdFinal === periodoSeleccionado);
 
-  // 3. Ejecutar clasificaciones agregadas para el periodo activo (Corregido)
+  // 3. Ejecutar clasificaciones agregadas para el periodo activo
   transaccionesFiltradasYProcesadas.forEach(t => {
-    // Si es una nómina, se acumula en ingresos y se corta el flujo
-    if (t.rubroFinal.toUpperCase() === "SUELDO") {
-      ingresosDelPeriodo += t.montoAbsoluto;
+    const rubroUpper = t.rubroFinal.toUpperCase();
+    
+    // Clasificación binaria de ingresos líquidos
+    if (rubroUpper === "SUELDO") {
+      ingresosSueldo += t.montoAbsoluto;
       return; 
     }
+    if (rubroUpper === "SOBRANTE") {
+      ingresosSobrante += t.montoAbsoluto;
+      return;
+    }
 
-    // Si no es sueldo, es un gasto corriente legítimo del periodo
     gastoGlobal += t.montoAbsoluto;
     const metodoActual = t['Metodo de pago'] || t.metodo_pago || "Efectivo";
     gastosPorMetodo[metodoActual] = (gastosPorMetodo[metodoActual] || 0) + t.montoAbsoluto;
@@ -283,7 +307,6 @@ export default function Finanzas({ refreshTrigger }) {
       macroEstructura[t.macroFinal] = { asignado: 0, gastado: 0, rubros: {} };
     }
 
-    // Aquí sumamos el gasto real a la categoría macro
     macroEstructura[t.macroFinal].gastado += t.montoAbsoluto;
     macroEstructura[t.macroFinal].rubros[t.rubroFinal] = (macroEstructura[t.macroFinal].rubros[t.rubroFinal] || 0) + t.montoAbsoluto;
 
@@ -291,24 +314,24 @@ export default function Finanzas({ refreshTrigger }) {
     if (macrosObligatorias.includes(t.macroFinal)) compromisosCriticosGastados += t.montoAbsoluto;
   });
 
+  const ingresosTotalesFlujo = ingresosSueldo + ingresosSobrante;
   const efectivoFisicoTotal = Object.values(saldosCuentas).reduce((acc, curr) => acc + curr, 0);
-  const bolsaCompromisosPendientes = compromisosCriticosAsignados - compromisosCriticosGastados;
-  const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].assigned || macroEstructura["Deudas / Tarjetas"].asignado : 0;
+  const deudasAsignadas = macroEstructura["Deudas / Tarjetas"] ? macroEstructura["Deudas / Tarjetas"].asignado : 0;
   const bolsaDisponibleFlujoLibre = (presupuestoGlobalEstatico - deudasAsignadas) - (gastoGlobal - totalDeudaMitigada);
 
   // =========================================================================
-  //  🔍 CONCILIADOR INDIVIDUAL CUENTA POR CUENTA (Corregido y unificado)
+  //  🔍 CONCILIADOR INDIVIDUAL CUENTA POR CUENTA
   // =========================================================================
   const ingresosPorMetodo = {};
   
   transaccionesFiltradasYProcesadas.forEach(t => {
-    if (t.rubroFinal.toUpperCase() === "SUELDO") {
+    const rubroUpper = t.rubroFinal.toUpperCase();
+    if (rubroUpper === "SUELDO" || rubroUpper === "SOBRANTE") {
       const metodo = t['Metodo de pago'] || t.metodo_pago || "Efectivo";
       ingresosPorMetodo[metodo] = (ingresosPorMetodo[metodo] || 0) + t.montoAbsoluto;
     }
   });
 
-  // Generamos el mapa de cuentas con conciliación bilateral exacta (Fugas e Ingresos Olvidados)
   const cuentasDescuadradas = [];
   let totalGastosFaltantesGlobal = 0;
 
@@ -318,33 +341,20 @@ export default function Finanzas({ refreshTrigger }) {
     const gastosRegistradosCuenta = gastosPorMetodo[metodo] || 0;
 
     if (ingresosCuenta > 0 || gastosRegistradosCuenta > 0) {
-      // Lo que deberías tener matemáticamente en base a las filas de la quincena
       const saldoTeoricoQueDeberiaTener = ingresosCuenta - gastosRegistradosCuenta;
-      
-      // Calculamos la diferencia absoluta entre tu realidad física y tu flujo reportado
       const diferenciaAbsoluta = saldoTeoricoQueDeberiaTener - saldoActualEnSheet;
 
       if (Math.abs(diferenciaAbsoluta) > 15) {
         totalGastosFaltantesGlobal += Math.abs(diferenciaAbsoluta);
-        
-        // Si la diferencia es positiva, te faltan registrar GASTOS
-        // Si la diferencia es negativa, te faltan registrar INGRESOS/RETIROS (Como tus $1,105.00)
-        const tipoDescuadre = diferenciaAbsoluta > 0 
-          ? "Falta Gasto" 
-          : "Falta Ingreso";
-
-        // En lugar de meter el string plano en el nombre, separamos las propiedades:
         cuentasDescuadradas.push({ 
-          nombre: metodo, // Solo el canal limpio: "Debito BBVA (E)", "Efectivo", etc.
+          nombre: metodo, 
           montoFaltante: Math.abs(diferenciaAbsoluta),
-          tipo: diferenciaAbsoluta > 0 ? "gasto" : "ingreso" // Mantenemos la naturaleza del descuadre
+          tipo: diferenciaAbsoluta > 0 ? "gasto" : "ingreso"
         });
       }
     }
   });
 
-
-  // Paginador invertido para ver siempre los últimos primero
   const totalPaginas = Math.ceil(transaccionesFiltradasYProcesadas.length / itemsPorPagina) || 1;
   const indiceUltimoItem = paginaActual * itemsPorPagina;
   const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
@@ -353,7 +363,7 @@ export default function Finanzas({ refreshTrigger }) {
   return (
     <div className="space-y-6 text-left p-2 bg-zinc-950 text-zinc-200 font-sans min-h-screen">
       
-      {/* HEADER CONTROLES Y CONTROL SELECTOR DINÁMICO */}
+      {/* HEADER */}
       <div className="border-b border-zinc-900 pb-5 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tighter uppercase italic text-slate-50 flex items-center gap-2">
@@ -391,7 +401,7 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       </div>
 
-      {/* RITMO PROPORCIONAL DE PACING DE LA QUINCENA */}
+      {/* PROGRESS BAR */}
       {periodoSeleccionado === obtenerQuincenaActualId() && (
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
           <div className="flex justify-between text-[9px] font-black uppercase tracking-wider mb-2">
@@ -404,21 +414,29 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       )}
 
-      {/* 📊 CUADRO DE MANDOS DE LIQUIDEZ QUINCENAL AMPLIADO */}
+      {/* 📊 CUADRO DE MANDOS CON DESGLOSE DE INGRESOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* CONTROL DE INGRESOS */}
+        {/* CONTROL DE INGRESOS SEPARADOS */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-500">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Ingresos Obtenidos Q.</span>
-          <div className="mt-2">
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Ingresos Quincena</span>
+          <div className="mt-2 space-y-1">
             <div className="text-xl font-black text-emerald-400 tabular-nums">
-              ${ingresosDelPeriodo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              ${ingresosTotalesFlujo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Nómina total capturada en la quincena</p>
+            <div className="pt-1.5 border-t border-zinc-800/60 space-y-0.5 text-[9px] uppercase font-bold text-zinc-400">
+              <div className="flex justify-between">
+                <span className="text-zinc-500 font-semibold">Salarios:</span>
+                <span className="text-slate-200 font-mono">${ingresosSueldo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500 font-semibold">Sobrante quincena:</span>
+                <span className="text-emerald-500 font-mono">${ingresosSobrante.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 🚨 TARJETA DETECTOR DE GASTOS OLVIDADOS */}
         <div className={`border rounded-xl p-4 flex flex-col justify-between transition-all ${totalGastosFaltantesGlobal > 10 ? 'bg-red-950/20 border-red-900/60 border-t-2 border-t-red-500 animate-pulse' : 'bg-zinc-900/40 border-zinc-800'}`}>
           <span className={`text-[9px] font-black uppercase tracking-wider ${totalGastosFaltantesGlobal > 10 ? 'text-red-400' : 'text-zinc-500'}`}>
             {totalGastosFaltantesGlobal > 10 ? '⚠️ Gastos Sin Registrar' : 'Cuentas Cuadradas'}
@@ -427,35 +445,29 @@ export default function Finanzas({ refreshTrigger }) {
             <div className={`text-xl font-black tabular-nums ${totalGastosFaltantesGlobal > 10 ? 'text-red-400' : 'text-zinc-400'}`}>
               ${totalGastosFaltantesGlobal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </div>
-            
             {cuentasDescuadradas.length > 0 ? (
               <div className="pt-2 border-t border-zinc-800/60 space-y-1">
                 {cuentasDescuadradas.map(c => {
                   const esGasto = c.tipo === "gasto";
                   return (
                     <div key={c.nombre} className="text-[10px] font-black uppercase flex justify-between items-center tracking-tight py-0.5">
-                      {/* Nombre a la izquierda */}
                       <span className="text-zinc-400">{c.nombre}</span>
-                      
-                      {/* Monto coloreado a la derecha con espacio en el signo $ */}
                       <span className={`font-mono font-bold ${esGasto ? 'text-red-400' : 'text-emerald-400'}`}>
-                        $ {c.montoFaltante.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        $ {c.montoFaltante.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-[8px] text-zinc-500 uppercase font-bold tracking-tight">
-                Tu dinero físico coincide con tu flujo
-              </p>
+              <p className="text-[8px] text-zinc-500 uppercase font-bold tracking-tight">Realidad física coincide con flujo</p>
             )}
           </div>
         </div>
 
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
           <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-            <Flame className="w-3 h-3 text-emerald-400 animate-pulse" /> Caja de Seguridad Libre (Flujo)
+            <Flame className="w-3 h-3 text-emerald-400 animate-pulse" /> Caja de Seguridad Libre
           </span>
           <div className="mt-2">
             <div className={`text-xl font-black tabular-nums ${bolsaDisponibleFlujoLibre < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -466,7 +478,7 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
 
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-emerald-400">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Total Búnker Real Bancos/Efectivo</span>
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Total Real en Bancos/Efectivo</span>
           <div className="mt-2">
             <div className="text-xl font-black text-emerald-400 tabular-nums">${efectivoFisicoTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
             <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Suma acumulada real en columnas de saldos</p>
@@ -474,7 +486,7 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       </div>
 
-      {/* CUENTAS VIGENTES */}
+      {/* CANALES DE PAGO */}
       <div>
         <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Saldos de Canales de Pago</h3>
         <div className="flex flex-wrap gap-2">
@@ -497,10 +509,8 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       </div>
 
-      {/* CORE CONTROL: MACROS & BITÁCORA */}
+      {/* GRID SECCIONES TRASSERAS */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        
-        {/* SEMÁFORO DE PACING */}
         <div className="xl:col-span-1 space-y-4">
           <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Métricas de Ritmo Quincenal</h3>
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 max-h-[600px] overflow-y-auto space-y-3 custom-scrollbar">
@@ -577,12 +587,10 @@ export default function Finanzas({ refreshTrigger }) {
           </div>
         </div>
 
-        {/* HUELLA DE TRANSACCIONES */}
         <div className="xl:col-span-2 space-y-4">
           <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Huella de Transacciones de este Periodo</h3>
           <div className="bg-zinc-900 shadow-2xl rounded-xl overflow-hidden border border-zinc-800">
             <div className="overflow-x-auto">
-              
               <div className="flex justify-between items-center bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-wider">
                 <span className="text-zinc-500 italic">Mostrando {transaccionesFiltradasYProcesadas.length > 0 ? indicePrimerItem + 1 : 0}-{Math.min(indiceUltimoItem, transaccionesFiltradasYProcesadas.length)} de {transaccionesFiltradasYProcesadas.length} registros</span>
                 <div className="flex items-center gap-4">
@@ -607,8 +615,9 @@ export default function Finanzas({ refreshTrigger }) {
                   {transaccionesPaginadas.length > 0 ? transaccionesPaginadas.map((t, idx) => {
                     const rubro = t.rubroFinal;
                     const macro = t.macroFinal;
+                    const rubroUpper = rubro.toUpperCase();
                     const esDeuda = macro === "Deudas / Tarjetas";
-                    const esSueldo = rubro.toUpperCase() === "SUELDO";
+                    const esIngresoPuro = rubroUpper === "SUELDO" || rubroUpper === "SOBRANTE";
 
                     return (
                       <tr key={idx} className="hover:bg-zinc-800/40 transition-colors">
@@ -616,12 +625,12 @@ export default function Finanzas({ refreshTrigger }) {
                           <div className="text-xs font-black text-slate-100 uppercase tracking-tight leading-tight">{t.Descripción || t.descripcion}</div>
                           <div className="text-[8px] font-bold text-zinc-600 font-mono mt-0.5">{t.Fecha || t.fecha}</div>
                         </td>
-                        <td className="p-4 text-transform: uppercase text-[10px] font-black text-zinc-300 tracking-tight">{esSueldo ? "INGRESOS" : macro}</td>
+                        <td className="p-4 text-transform: uppercase text-[10px] font-black text-zinc-300 tracking-tight">{esIngresoPuro ? "INGRESOS" : macro}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase bg-zinc-950 border border-zinc-800 italic ${esSueldo ? 'text-emerald-400 border-emerald-500/30' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>{rubro}</span>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase bg-zinc-950 border border-zinc-800 italic ${esIngresoPuro ? 'text-emerald-400 border-emerald-500/30' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>{rubro}</span>
                         </td>
-                        <td className={`p-4 text-right text-xs font-black tabular-nums ${esSueldo ? 'text-emerald-400' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>
-                          {esSueldo ? '+$' : esDeuda ? '-$' : '-$'}{t.montoAbsoluto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        <td className={`p-4 text-right text-xs font-black tabular-nums ${esIngresoPuro ? 'text-emerald-400' : esDeuda ? 'text-blue-400' : 'text-red-400'}`}>
+                          {esIngresoPuro ? '+$' : esDeuda ? '-$' : '-$'}{t.montoAbsoluto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     );
@@ -635,10 +644,9 @@ export default function Finanzas({ refreshTrigger }) {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* MODAL DE REGISTRO */}
+      {/* MODAL REGISTRO CON NUEVO SELECTOR DE INGRESO */}
       {modalRegistro && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-left border border-zinc-800 border-t-4 border-t-emerald-400">
@@ -653,7 +661,7 @@ export default function Finanzas({ refreshTrigger }) {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setForm(prev => ({ ...prev, tipo: 'GASTO', rubro: listaRubros[0] || "" }))}
+                    onClick={() => setForm(prev => ({ ...prev, tipo: 'GASTO', rubro: listadoRubros[0] || "", descripcion: "" }))}
                     className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${form.tipo === 'GASTO' ? 'bg-red-500/10 text-red-400 border-red-500' : 'bg-zinc-950 text-zinc-500 border-zinc-800'}`}
                   >
                     🔴 Gasto Corriente
@@ -663,7 +671,7 @@ export default function Finanzas({ refreshTrigger }) {
                     onClick={() => setForm(prev => ({ ...prev, tipo: 'INGRESO', rubro: 'SUELDO', descripcion: 'NÓMINA QUINCENAL' }))}
                     className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${form.tipo === 'INGRESO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500' : 'bg-zinc-950 text-zinc-500 border-zinc-800'}`}
                   >
-                    🟢 Ingreso / Nómina
+                    🟢 Ingreso Liquido
                   </button>
                 </div>
               </div>
@@ -681,12 +689,24 @@ export default function Finanzas({ refreshTrigger }) {
                 <div>
                   <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Sub-Rubro</label>
                   {form.tipo === 'INGRESO' ? (
-                    <select className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-black text-emerald-400 uppercase outline-none focus:border-emerald-400">
-                      <option value="SUELDO">SUELDO</option>
+                    <select 
+                      value={form.rubro} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm(prev => ({
+                          ...prev, 
+                          rubro: val, 
+                          descripcion: val === "SOBRANTE" ? "SOBRANTE PERIOSO ANTERIOR" : "NÓMINA QUINCENAL"
+                        }));
+                      }}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-black text-emerald-400 uppercase outline-none cursor-pointer"
+                    >
+                      <option value="SUELDO">💼 SUELDO</option>
+                      <option value="SOBRANTE">📦 SOBRANTE</option>
                     </select>
                   ) : (
                     <select value={form.rubro} onChange={(e) => setForm(prev => ({...prev, rubro: e.target.value}))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-50 uppercase outline-none focus:border-emerald-400 cursor-pointer">
-                      {listaRubros.map(r => <option key={r} value={r}>{r}</option>)}
+                      {listadoRubros.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   )}
                 </div>
