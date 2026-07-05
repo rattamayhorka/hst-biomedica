@@ -17,7 +17,10 @@ export default function Finanzas({ refreshTrigger }) {
 
   // 📅 SELECCIÓN DE PERIODO DINÁMICO
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState(obtenerQuincenaActualId());
-
+  
+  // FILTRO POR MACRO
+  const [macroFiltroSeleccionado, setMacroFiltroSeleccionado] = useState(null);
+  
   const [macrosAbiertas, setMacrosAbiertas] = useState({ "Facturas / Vivienda": true, "Deudas / Tarjetas": true });
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 9;
@@ -124,11 +127,11 @@ export default function Finanzas({ refreshTrigger }) {
   const progresoQuincena = calcularProgresoTiempoQuincena();
 
   // =========================================================================
-  //  📡 INGESTIÓN DE DATA
+  //  📡 INGESTIÓN DE DATA (CON ACTUALIZACIÓN SILENCIOSA EN SEGUNDO PLANO)
   // =========================================================================
-  const cargarDatos = async () => {
+  const cargarDatos = async (silencioso = false) => {
     try {
-      setCargando(true);
+      if (!silencioso) setCargando(true);
       const [dataTransacciones, dataPresupuestos, dataMapeo] = await Promise.all([
         database.obtenerSeccion('transacciones'),
         database.obtenerSeccion('presupuestos_macro'), 
@@ -176,13 +179,24 @@ export default function Finanzas({ refreshTrigger }) {
     } catch (error) {
       console.error("Error al sincronizar con Búnker Sheets:", error);
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
   };
 
+  // Efecto 1: Carga inicial y disparador manual externo
   useEffect(() => {
-    cargarDatos();
+    cargarDatos(false);
   }, [refreshTrigger]);
+
+  // Efecto 2: Motor de sondeo automático en segundo plano (Cada 5 minutos)
+  useEffect(() => {
+    const TIEMPO_POLLING = 5 * 60 * 1000; // 5 minutos en milisegundos
+    const intervaloAuto = setInterval(() => {
+      cargarDatos(true); 
+    }, TIEMPO_POLLING);
+
+    return () => clearInterval(intervaloAuto);
+  }, []);
 
   const toggleMacro = (macro) => {
     setMacrosAbiertas(prev => ({ ...prev, [macro]: !prev[macro] }));
@@ -214,14 +228,14 @@ export default function Finanzas({ refreshTrigger }) {
     
     await database.guardarDatos('guardarTransaccion', payload);
     
-    const saldoAnterior = saldosCuentas[form.metodo_pago] || 0;
-    const nuevoSaldo = saldoAnterior - finalImporte; 
+    //const saldoAnterior = saldosCuentas[form.metodo_pago] || 0;
+    //const nuevoSaldo = saldoAnterior - finalImporte; 
     
-    await database.guardarDatos('actualizarSaldos', { [form.metodo_pago]: nuevoSaldo });
+    //await database.guardarDatos('actualizarSaldos', { [form.metodo_pago]: nuevoSaldo });
 
     setForm(prev => ({ ...prev, importe: "", descripcion: "", tipo: "GASTO" }));
     setGuardando(false);
-    cargarDatos();
+    cargarDatos(false);
   };
 
   const ejecutarActualizarSaldos = async (e) => {
@@ -230,7 +244,7 @@ export default function Finanzas({ refreshTrigger }) {
     await database.guardarDatos('actualizarSaldos', saldosCuentas);
     setModalSaldos(false);
     setGuardando(false);
-    cargarDatos();
+    cargarDatos(false);
   };
 
   const listadoRubros = Object.keys(mapaRubrosAMacro);
@@ -283,13 +297,12 @@ export default function Finanzas({ refreshTrigger }) {
       rubroFinal: rubroActual,
       macroFinal: macroAsignada
     };
-  }).filter(t => t.qIdFinal === periodoSeleccionado);
+  }).filter(t => t.qIdFinal === periodoSeleccionado); // <-- Solo quincena, libre de filtros macro.
 
   // 3. Ejecutar clasificaciones agregadas para el periodo activo
   transaccionesFiltradasYProcesadas.forEach(t => {
     const rubroUpper = t.rubroFinal.toUpperCase();
     
-    // Clasificación binaria de ingresos líquidos
     if (rubroUpper === "SUELDO") {
       ingresosSueldo += t.montoAbsoluto;
       return; 
@@ -355,11 +368,19 @@ export default function Finanzas({ refreshTrigger }) {
     }
   });
 
-  const totalPaginas = Math.ceil(transaccionesFiltradasYProcesadas.length / itemsPorPagina) || 1;
+  // 🔍 FILTRAMOS LAS TRANSACCIONES DE LA TABLA SEGÚN EL BOTÓN SELECCIONADO
+  const transaccionesParaTabla = transaccionesFiltradasYProcesadas.filter(t => {
+    return !macroFiltroSeleccionado || t.macroFinal === macroFiltroSeleccionado;
+  });
+
+  // El paginador ahora calcula en base al array que sí está filtrado por macro
+  const totalPaginas = Math.ceil(transaccionesParaTabla.length / itemsPorPagina) || 1;
   const indiceUltimoItem = paginaActual * itemsPorPagina;
   const indicePrimerItem = indiceUltimoItem - itemsPorPagina;
-  const transaccionesPaginadas = [...transaccionesFiltradasYProcesadas].reverse().slice(indicePrimerItem, indiceUltimoItem);
   
+  // Cortamos el array filtrado para la vista
+  const transaccionesPaginadas = [...transaccionesParaTabla].reverse().slice(indicePrimerItem, indiceUltimoItem);
+
   return (
     <div className="space-y-6 text-left p-2 bg-zinc-950 text-zinc-200 font-sans min-h-screen">
       
@@ -373,7 +394,11 @@ export default function Finanzas({ refreshTrigger }) {
             <span className="text-[9px] font-black uppercase text-zinc-500 pl-2">Corte:</span>
             <select 
               value={periodoSeleccionado}
-              onChange={(e) => { setPeriodoSeleccionado(e.target.value); setPaginaActual(1); }}
+              onChange={(e) => { 
+                setPeriodoSeleccionado(e.target.value);
+                setPaginaActual(1);
+                setMacroFiltroSeleccionado(null);
+              }}
               className="bg-zinc-950 border border-zinc-800 text-xs font-bold text-slate-200 rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               {generarOpcionesDeQuincenas().map(opcion => (
@@ -414,29 +439,30 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       )}
 
-      {/* 📊 CUADRO DE MANDOS CON DESGLOSE DE INGRESOS */}
+      {/* 📊 CUADRO DE MANDOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* CONTROL DE INGRESOS SEPARADOS */}
+        {/* CONTROL DE INGRESOS */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-emerald-500">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Ingresos Quincena</span>
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Ingresos Obtenidos Q.</span>
           <div className="mt-2 space-y-1">
             <div className="text-xl font-black text-emerald-400 tabular-nums">
               ${ingresosTotalesFlujo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </div>
             <div className="pt-1.5 border-t border-zinc-800/60 space-y-0.5 text-[9px] uppercase font-bold text-zinc-400">
               <div className="flex justify-between">
-                <span className="text-zinc-500 font-semibold">Salarios:</span>
+                <span className="text-zinc-500 font-semibold">💼 Sueldo Base:</span>
                 <span className="text-slate-200 font-mono">${ingresosSueldo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500 font-semibold">Sobrante quincena:</span>
+                <span className="text-zinc-500 font-semibold">📦 Sobrante Activo:</span>
                 <span className="text-emerald-500 font-mono">${ingresosSobrante.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* DETECTOR DE GASTOS OLVIDADOS */}
         <div className={`border rounded-xl p-4 flex flex-col justify-between transition-all ${totalGastosFaltantesGlobal > 10 ? 'bg-red-950/20 border-red-900/60 border-t-2 border-t-red-500 animate-pulse' : 'bg-zinc-900/40 border-zinc-800'}`}>
           <span className={`text-[9px] font-black uppercase tracking-wider ${totalGastosFaltantesGlobal > 10 ? 'text-red-400' : 'text-zinc-500'}`}>
             {totalGastosFaltantesGlobal > 10 ? '⚠️ Gastos Sin Registrar' : 'Cuentas Cuadradas'}
@@ -465,6 +491,7 @@ export default function Finanzas({ refreshTrigger }) {
           </div>
         </div>
 
+        {/* CAJA DE SEGURIDAD LIBRE */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
           <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
             <Flame className="w-3 h-3 text-emerald-400 animate-pulse" /> Caja de Seguridad Libre
@@ -477,39 +504,28 @@ export default function Finanzas({ refreshTrigger }) {
           </div>
         </div>
 
+        {/* TOTAL REAL BÚNKER */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-emerald-400">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Total Real en Bancos/Efectivo</span>
-          <div className="mt-2">
-            <div className="text-xl font-black text-emerald-400 tabular-nums">${efectivoFisicoTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-            <p className="text-[8px] text-zinc-500 mt-1 uppercase font-bold tracking-tight">Suma acumulada real en columnas de saldos</p>
+          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Total Búnker Real Bancos/Efectivo</span>
+          <div className="mt-2 space-y-1">
+            <div className="text-xl font-black text-emerald-400 tabular-nums">
+              ${efectivoFisicoTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="pt-1.5 border-t border-zinc-800/60 space-y-0.5 text-[9px] uppercase font-bold text-zinc-400 max-h-[60px] overflow-y-auto custom-scrollbar">
+              {listaMetodos
+                .filter(metodo => (saldosCuentas[metodo] || 0) > 0)
+                .map(metodo => (
+                  <div key={metodo} className="flex justify-between">
+                    <span className="text-zinc-500 font-semibold truncate max-w-[110px]">{metodo}:</span>
+                    <span className="text-slate-200 font-mono">${(saldosCuentas[metodo] || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* CANALES DE PAGO */}
-      <div>
-        <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Saldos de Canales de Pago</h3>
-        <div className="flex flex-wrap gap-2">
-          {listaMetodos
-            .filter(metodo => (saldosCuentas[metodo] || 0) > 0)
-            .map(metodo => {
-              const saldoActual = saldosCuentas[metodo] || 0;
-              const gastadoQuincena = gastosPorMetodo[metodo] || 0;
-            return (
-              <div key={metodo} className="flex items-center bg-zinc-950 border border-zinc-800/80 rounded-lg px-3 py-1.5 shadow-sm">
-                <CreditCard className="w-3 h-3 text-emerald-400 mr-2" />
-                <span className="text-[9px] font-black uppercase text-zinc-400 mr-2 tracking-tight">{metodo}:</span>
-                <span className="text-xs font-black text-slate-100 tabular-nums">
-                  ${saldoActual.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                  <span className="text-[8px] text-zinc-600 font-black ml-1.5 uppercase tracking-wider">(Gastado Periodo: ${gastadoQuincena.toFixed(2)})</span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* GRID SECCIONES TRASSERAS */}
+      {/* GRID SECCIONES TRASERAS */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-1 space-y-4">
           <h3 className="text-sm font-black text-slate-50 uppercase italic tracking-tighter">Métricas de Ritmo Quincenal</h3>
@@ -544,19 +560,50 @@ export default function Finanzas({ refreshTrigger }) {
                   badgeStyle = "bg-amber-500/20 text-amber-400 border-amber-500/30";
                 }
 
+                // Modifica el contenedor para que cambie de borde o fondo si está seleccionado:
+                const esMacroFiltrada = macroFiltroSeleccionado === macro;
+
                 return (
-                  <div key={macro} className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950 ${sobregirado ? 'border-red-900/60' : 'border-zinc-800'}`}>  
-                    <div onClick={() => toggleMacro(macro)} className="p-3 flex justify-between items-start select-none cursor-pointer hover:bg-zinc-900/50">
-                      <div className="space-y-1">
+                  <div 
+                    key={macro} 
+                    className={`rounded border overflow-hidden transition-all duration-200 bg-zinc-950 ${
+                      esMacroFiltrada 
+                        ? 'border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]' 
+                        : sobregirado 
+                          ? 'border-red-900/60' 
+                          : 'border-zinc-800'
+                    }`}
+                  > 
+                    {/* Al dar clic en cualquier parte de este contenedor, se filtra la huella de transacciones */}
+                    <div 
+                      onClick={() => {
+                        setMacroFiltroSeleccionado(macroFiltroSeleccionado === macro ? null : macro);
+                        setPaginaActual(1);
+                      }}
+                      className="p-3 flex justify-between items-start select-none cursor-pointer hover:bg-zinc-900/50"
+                    >
+                      <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-1.5">
-                          {estaAbierto ? <ChevronDown className="w-3.5 h-3.5 text-emerald-400" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
-                          <span className="text-[10px] font-black uppercase tracking-tight text-slate-200">{macro}</span>
+                          {/* El botón de la flecha frena la propagación para solo abrir/cerrar rubros sin alterar el filtro */}
+                          <button 
+                            type="button" 
+                            onClick={(e) => { e.stopPropagation(); toggleMacro(macro); }} 
+                            className="p-1 hover:bg-zinc-800 rounded cursor-pointer bg-transparent border-none"
+                          >
+                            {estaAbierto ? <ChevronDown className="w-3.5 h-3.5 text-emerald-400" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
+                          </button>
+
+                          <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${esMacroFiltrada ? 'text-emerald-400' : 'text-slate-200'}`}>
+                            {macro}
+                          </span>
+
                           <span className={`px-1.5 py-0.5 text-[7px] font-bold rounded-full border uppercase tracking-wider ${badgeStyle}`}>
                             {statusBadgeText}
                           </span>
                         </div>
-                        <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider pl-5">Tope Q: ${item.asignado.toFixed(2)}</div>
+                        <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider pl-7">Tope Q: ${item.asignado.toFixed(2)}</div>
                       </div>
+                      
                       <div className="text-right">
                         <div className="text-xs font-black text-slate-50 tabular-nums">${item.gastado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
                         <div className={`text-[9px] uppercase tracking-tighter ${sobregirado ? 'text-red-400 font-bold' : 'text-zinc-500'}`}>
@@ -592,7 +639,24 @@ export default function Finanzas({ refreshTrigger }) {
           <div className="bg-zinc-900 shadow-2xl rounded-xl overflow-hidden border border-zinc-800">
             <div className="overflow-x-auto">
               <div className="flex justify-between items-center bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-wider">
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <span className="text-zinc-500 italic">Mostrando {transaccionesFiltradasYProcesadas.length > 0 ? indicePrimerItem + 1 : 0}-{Math.min(indiceUltimoItem, transaccionesFiltradasYProcesadas.length)} de {transaccionesFiltradasYProcesadas.length} registros</span>
+                
+                {/* 🏷️ INDICADOR DE FILTRO ACTIVO */}
+                {macroFiltroSeleccionado && (
+                  <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md text-[8px] font-black tracking-wide w-fit">
+                    <span>FILTRADO POR: {macroFiltroSeleccionado}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setMacroFiltroSeleccionado(null)} 
+                      className="text-emerald-500 hover:text-emerald-300 font-sans text-[10px] pl-1 font-bold cursor-pointer bg-transparent border-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
                 <div className="flex items-center gap-4">
                   <span className="text-zinc-400">Pág. <span className="text-slate-100 tabular-nums">{paginaActual}</span> de <span className="text-slate-100 tabular-nums">{totalPaginas}</span></span>
                   <div className="flex gap-1">
@@ -646,7 +710,7 @@ export default function Finanzas({ refreshTrigger }) {
         </div>
       </div>
 
-      {/* MODAL REGISTRO CON NUEVO SELECTOR DE INGRESO */}
+      {/* MODAL REGISTRO */}
       {modalRegistro && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-left border border-zinc-800 border-t-4 border-t-emerald-400">
@@ -696,7 +760,7 @@ export default function Finanzas({ refreshTrigger }) {
                         setForm(prev => ({
                           ...prev, 
                           rubro: val, 
-                          descripcion: val === "SOBRANTE" ? "SOBRANTE PERIOSO ANTERIOR" : "NÓMINA QUINCENAL"
+                          descripcion: val === "SOBRANTE" ? "SOBRANTE PERIODO ANTERIOR" : "NÓMINA QUINCENAL"
                         }));
                       }}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-[11px] font-black text-emerald-400 uppercase outline-none cursor-pointer"
