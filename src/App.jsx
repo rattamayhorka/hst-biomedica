@@ -9,6 +9,7 @@ import RegistroRapido from './components/RegistroRapido';
 import GestionProyectos from './components/GestionProyectos';
 import GastosCasa from './components/GastosCasa';
 import ReunionesCasa from './components/ReunionesCasa';
+import Deudas from './components/Deudas';
 
 // 🛠️ Agregamos los iconos necesarios para el menú compacto
 import {
@@ -25,7 +26,8 @@ import {
   DollarSign,
   Database,
   KeyRound,
-  Send
+  Send,
+  CreditCard
 } from 'lucide-react';
 
 export default function App() {
@@ -315,6 +317,20 @@ export default function App() {
               <span className="hidden xl:inline px-1">Finanzas</span>
             </button>
 
+            {/* 💳 NUEVO BOTÓN CONTROL DE DEUDAS */}
+            <button  
+              onClick={() => cambiarSeccion('deudas')}  
+              title="Tarjeta y Deudas"
+              className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'deudas'  
+                  ? 'bg-blue-950/40 text-blue-400 border border-blue-900/40'  
+                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              <CreditCard className="w-4 h-4 flex-shrink-0 xl:hidden" />
+              <span className="hidden xl:inline px-1">Control Deudas</span>
+            </button>
+
             <button  
               onClick={() => cambiarSeccion('proyectos_grafo')}  
               title="Mapa de Proyectos"
@@ -323,7 +339,7 @@ export default function App() {
               }`}
             >
               <Map className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1">🗺️ Mapa Proyectos</span>
+              <span className="hidden xl:inline px-1">Mapa Proyectos</span>
             </button>
           </nav>
         </div>
@@ -353,7 +369,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.3 "finTOOL v2"
+            rattamayhorka v0.8.4 "Deudas v1"
           </div>
         </div>
       </div>
@@ -370,6 +386,7 @@ export default function App() {
           {seccionActiva === 'proyectos_grafo' && <GestionProyectos refreshTrigger={refreshKeys['proyectos_grafo']} />}
           {seccionActiva === 'casa_reuniones' && <ReunionesCasa refreshTrigger={refreshKeys['casa_reuniones']} />}
           {seccionActiva === 'casa_gastos' && <GastosCasa refreshTrigger={refreshKeys['casa_gastos']} />}
+          {seccionActiva === 'deudas' && <Deudas refreshTrigger={refreshKeys['deudas']} />}  
         </div>
       </main>
     </div>
