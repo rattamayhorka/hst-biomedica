@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import Kanban from './components/Kanban';
 //import Equipos from './components/Equipos';
 import Gases from './components/Gases';
-import Proyectos from './components/Proyectos';
+import Compromisos from './components/CompromisosHST';
 import Compras from './components/Compras';
-import Reuniones from './components/Reuniones';
+import FutureLogHST from './components/FutureLogHST';
 import RegistroRapido from './components/RegistroRapido';
 import GestionProyectos from './components/GestionProyectos';
 import GastosCasa from './components/GastosCasa';
-import ReunionesCasa from './components/ReunionesCasa';
 import Deudas from './components/Deudas';
+import ReunionesCasa from './components/ReunionesCasa';
 
 // 🛠️ Agregamos los iconos necesarios para el menú compacto
 import {
@@ -241,10 +241,10 @@ export default function App() {
             </button>
 
             <button 
-              onClick={() => cambiarSeccion('proyectos')} 
+              onClick={() => cambiarSeccion('compromisos')} 
               title="Compromisos"
               className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'proyectos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+                seccionActiva === 'compromisos' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
               <FileText className="w-4 h-4 flex-shrink-0 xl:hidden" />
@@ -263,10 +263,10 @@ export default function App() {
             </button>
   
             <button 
-              onClick={() => cambiarSeccion('reuniones')} 
+              onClick={() => cambiarSeccion('futureloghst')} 
               title="Future LOG Trabajo"
               className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'reuniones' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+                seccionActiva === 'futureloghst' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
               <Calendar className="w-4 h-4 flex-shrink-0 xl:hidden" />
@@ -380,9 +380,9 @@ export default function App() {
           {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" refreshTrigger={refreshKeys['kanban']} />}
           {seccionActiva === 'casa_pendientes' && <Kanban filtroTipo="Casa" refreshTrigger={refreshKeys['casa_pendientes']} />}
           {seccionActiva === 'gases' && <Gases refreshTrigger={refreshKeys['gases']} />}
-          {seccionActiva === 'proyectos' && <Proyectos refreshTrigger={refreshKeys['proyectos']} />}
+          {seccionActiva === 'compromisos' && <Compromisos refreshTrigger={refreshKeys['compromisos']} />}
           {seccionActiva === 'compras' && <Compras refreshTrigger={refreshKeys['compras']} />}
-          {seccionActiva === 'reuniones' && <Reuniones refreshTrigger={refreshKeys['reuniones']} />}
+          {seccionActiva === 'futureloghst' && <FutureLogHST refreshTrigger={refreshKeys['futureloghst']} />}
           {seccionActiva === 'proyectos_grafo' && <GestionProyectos refreshTrigger={refreshKeys['proyectos_grafo']} />}
           {seccionActiva === 'casa_reuniones' && <ReunionesCasa refreshTrigger={refreshKeys['casa_reuniones']} />}
           {seccionActiva === 'casa_gastos' && <GastosCasa refreshTrigger={refreshKeys['casa_gastos']} />}
