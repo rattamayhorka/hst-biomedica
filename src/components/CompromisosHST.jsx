@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { database } from '../api';
-import { AlertTriangle, Calendar, CheckCircle2, User, Filter, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, User, Filter, X, ExternalLink } from 'lucide-react';
 
 export default function Proyectos() {
   const [acuerdos, setAcuerdos] = useState([]);
@@ -13,6 +13,7 @@ export default function Proyectos() {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [acuerdoSeleccionado, setAcuerdoSeleccionado] = useState(null);
   const [nuevoStatus, setNuevoStatus] = useState('PENDIENTE');
+  const [textoAcuerdoEditado, setTextoAcuerdoEditado] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   const hoy = new Date();
@@ -35,9 +36,7 @@ export default function Proyectos() {
     cargarAcuerdos();
   }, []);
 
-  // Aplicar filtros dinámicos respetando las actualizaciones de estado
   useEffect(() => {
-    // Si el estatus es 'TERMINADO', lo excluimos por completo de cualquier vista de la app
     const datosVisibles = acuerdos.filter(item => (item.Status || "").trim().toUpperCase() !== 'TERMINADO');
 
     if (filtroActivo === 'Todos') {
@@ -58,38 +57,37 @@ export default function Proyectos() {
   const abrirEdicion = (item) => {
     setAcuerdoSeleccionado(item);
     setNuevoStatus(item.Status || 'PENDIENTE');
+    setTextoAcuerdoEditado(item.Acciones || '');
     setMostrarModal(true);
   };
 
   const ejecutarActualizarEstatus = async (e) => {
-  e.preventDefault();
-  if (!acuerdoSeleccionado) return;
+    e.preventDefault();
+    if (!acuerdoSeleccionado) return;
 
-  setGuardando(true);
-  const idAcuerdo = acuerdoSeleccionado.Acciones; 
+    setGuardando(true);
+    const textoOriginalCelda = acuerdoSeleccionado.Acciones; 
 
-  // 1. Actualización optimista inmediata en la interfaz
-  setAcuerdos(prev => prev.map(item => 
-    item.Acciones === idAcuerdo ? { ...item, Status: nuevoStatus } : item
-  ));
+    setAcuerdos(prev => prev.map(item => 
+      item.Acciones === textoOriginalCelda 
+        ? { ...item, Acciones: textoAcuerdoEditado, Status: nuevoStatus } 
+        : item
+    ));
 
-  // 2. Persistencia: Pasamos el objeto plano directo. 
-  // Tu api.js se encargará de envolverlo en la propiedad 'datos'.
-  try {
-    await database.guardarDatos('modificarProyecto', { 
-      tareaOriginal: idAcuerdo, 
-      nuevaTarea: idAcuerdo, 
-      nuevoStatus: nuevoStatus // Verifica que tu state 'nuevoStatus' tenga el valor del select
-    });
-  } catch (error) {
-    console.error("Error al sincronizar con Sheets:", error);
-  }
+    try {
+      await database.guardarDatos('modificarProyecto', { 
+        tareaOriginal: textoOriginalCelda, 
+        nuevaTarea: textoAcuerdoEditated || textoAcuerdoEditado, 
+        nuevoStatus: nuevoStatus
+      });
+    } catch (error) {
+      console.error("Error al sincronizar con Sheets:", error);
+    }
 
-  // 3. Limpieza de estados después de disparar el fetch
-  setMostrarModal(false);
-  setAcuerdoSeleccionado(null);
-  setGuardando(false);
-};
+    setMostrarModal(false);
+    setAcuerdoSeleccionado(null);
+    setGuardando(false);
+  };
 
   const obtenerCriticos = () => {
     return acuerdosFiltrados.filter(item => {
@@ -181,19 +179,25 @@ export default function Proyectos() {
         </div>
       </div>
 
-      {/* MODAL INTERACTIVO DE CAMBIO DE ESTATUS */}
+      {/* MODAL INTERACTIVO DE EDICIÓN */}
       {mostrarModal && (
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div class="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-left border-t-4 border-t-blue-500">
             <form onSubmit={ejecutarActualizarEstatus} class="p-6">
               <div class="flex justify-between items-center mb-4">
-                <h4 class="text-sm font-black text-slate-200 uppercase tracking-tighter italic">Actualizar Estatus</h4>
+                <h4 class="text-sm font-black text-slate-200 uppercase tracking-tighter italic">Editar Compromiso</h4>
                 <button type="button" onClick={() => setMostrarModal(false)} class="text-slate-500 hover:text-slate-300 cursor-pointer"><X class="w-4 h-4" /></button>
               </div>
 
               <div class="mb-4">
-                <span class="block text-[8px] font-black uppercase text-zinc-500 tracking-wider mb-1">Acuerdo Seleccionado</span>
-                <p class="text-xs font-bold text-slate-300 uppercase leading-snug bg-zinc-950 p-3 rounded-lg border border-zinc-800/80 max-h-24 overflow-y-auto">{acuerdoSeleccionado?.Acciones}</p>
+                <label class="block text-[8px] font-black uppercase text-zinc-500 tracking-wider mb-1">Texto del Acuerdo / Añadir Nota Obsidian entre [ ]</label>
+                <textarea 
+                  value={textoAcuerdoEditado}
+                  onChange={(e) => setTextoAcuerdoEditado(e.target.value)}
+                  rows={3}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-bold text-slate-300 uppercase leading-snug outline-none focus:border-blue-600 resize-none font-sans"
+                  placeholder="Escribe el compromiso aquí... [nombre_nota_obsidian]"
+                />
               </div>
 
               <label class="block text-[9px] font-black uppercase text-slate-500 mb-1">Estatus en Minuta</label>
@@ -233,31 +237,67 @@ function TarjetaAcuerdo({ item, esVencido, esHecho, onClick }) {
   else if (origen.includes("BIOMÉDICA") || origen.includes("BIOMEDICA")) badgeColor = "bg-purple-950/40 text-purple-400 border-purple-900/40";
   else if (origen.includes("COMPRA")) badgeColor = "bg-amber-950/40 text-amber-400 border-amber-900/40";
 
+  const NOMBRE_VAULT = "Obsidian"; 
+
+  const textoOriginal = item.Acciones || "";
+  const matchCorchetes = textoOriginal.match(/\[(.*?)\]/);
+  const nombreArchivoObsidian = matchCorchetes ? matchCorchetes[1].trim() : null;
+  const textoLimpioParaMostrar = textoOriginal.replace(/\[(.*?)\]/, "").trim();
+
+  const urlObsidian = nombreArchivoObsidian 
+    ? `obsidian://open?vault=${encodeURIComponent(NOMBRE_VAULT)}&file=${encodeURIComponent(nombreArchivoObsidian)}`
+    : null;
+
+  let estiloFondoTarjeta = "border-zinc-800/80";
+  if (esHecho) {
+    estiloFondoTarjeta = "opacity-30 saturate-50 border-zinc-800";
+  } else if (esVencido) {
+    estiloFondoTarjeta = "border-l-4 border-l-rose-500 border-rose-950/40 bg-rose-950/5";
+  } else if (urlObsidian) {
+    estiloFondoTarjeta = "border-blue-500/50 bg-[#0c4a6e]/10 hover:border-blue-400 shadow-[0_0_15px_rgba(56,189,248,0.03)]";
+  }
+
+  const manejarClickObsidian = (e) => {
+    e.stopPropagation(); 
+  };
+
   return (
     <div 
       onClick={onClick}
-      class={`bg-zinc-900 border p-4 rounded-xl shadow-md flex flex-col justify-between group min-h-[140px] cursor-pointer hover:border-zinc-700 transition-all duration-300 ${
-        esHecho ? 'opacity-30 saturate-50 border-zinc-800' : (esVencido ? 'border-l-4 border-l-rose-500 border-rose-950/40 bg-rose-950/5' : 'border-zinc-800/80')
-      }`}
+      className={`bg-zinc-900 border p-4 rounded-xl shadow-md flex flex-col justify-between group min-h-[140px] cursor-pointer hover:border-zinc-700 transition-all duration-300 ${estiloFondoTarjeta}`}
     >
       <div>
-        <div class="flex justify-between items-start mb-3 gap-2">
-          <span class={`text-[8px] font-black uppercase px-2 py-0.5 rounded border tracking-wider ${badgeColor}`}>{item.Tema}</span>
-          <span class={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
-            esHecho ? 'bg-emerald-950/60 text-emerald-400 border-emerald-900/40' : (esVencido ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700')
-          }`}>{item.Status}</span>
+        <div className="flex justify-between items-start mb-3 gap-2">
+          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border tracking-wider ${badgeColor}`}>{item.Tema}</span>
+          
+          <div className="flex items-center gap-1.5">
+            {urlObsidian && (
+              <a 
+                href={urlObsidian} 
+                onClick={manejarClickObsidian}
+                title={`Abrir nota "${nombreArchivoObsidian}" en Obsidian`}
+                className="flex items-center gap-1 text-[8px] font-black uppercase px-2 py-0.5 rounded border bg-[#0c4a6e] text-blue-400 border-blue-900/40 hover:bg-[#0ea5e9] hover:text-white transition-all duration-200"
+              >
+                OBSIDIAN <ExternalLink className="w-2 h-2" />
+              </a>
+            )}
+
+            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
+              esHecho ? 'bg-emerald-950/60 text-emerald-400 border-emerald-900/40' : (esVencido ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700')
+            }`}>{item.Status}</span>
+          </div>
         </div>
-        <p class="text-[11px] text-slate-200 font-medium leading-snug uppercase tracking-tight line-clamp-3 group-hover:line-clamp-none transition-all duration-300">
-          {item.Acciones}
+        <p className="text-[11px] text-slate-200 font-medium leading-snug uppercase tracking-tight line-clamp-3 group-hover:line-clamp-none transition-all duration-300">
+          {textoLimpioParaMostrar}
         </p>
       </div>
       
-      <div class="flex justify-between items-center mt-4 pt-2 border-t border-zinc-800/60 text-zinc-500 font-bold text-[9px]">
-        <span class="italic text-slate-400 flex items-center gap-1">
-          <User class="w-3 h-3 text-zinc-600" /> {item.Responsable || 'BIOMÉDICA'}
+      <div className="flex justify-between items-center mt-4 pt-2 border-t border-zinc-800/60 text-zinc-500 font-bold text-[9px]">
+        <span className="italic text-slate-400 flex items-center gap-1">
+          <User className="w-3 h-3 text-zinc-600" /> {item.Responsable || 'BIOMÉDICA'}
         </span>
-        <span class={`flex items-center gap-1 font-black ${esVencido ? 'text-rose-400' : 'text-slate-300'}`}>
-          <Calendar class="w-3 h-3 text-zinc-500" /> {item['Fecha compromiso']}
+        <span className={`flex items-center gap-1 font-black ${esVencido ? 'text-rose-400' : 'text-slate-300'}`}>
+          <Calendar className="w-3 h-3 text-zinc-500" /> {item['Fecha compromiso']}
         </span>
       </div>
     </div>

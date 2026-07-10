@@ -51,8 +51,8 @@ export default function App() {
       }
 
       // 🔒 FLUJO DE PRODUCCIÓN: En internet sí valida tu sesión de forma estricta
-      const sesionValida = localStorage.getItem('sesion_biomedica_st');
-      if (sesionValida) {
+      const sesionValida = sessionStorage.getItem('sesion_biomedica_st'); // <- Cambiado a sessionStorage
+            if (sesionValida) {
         setAutenticado(true);
       }
     }, []);
@@ -108,7 +108,7 @@ export default function App() {
       const data = await res.json();
 
       if (data.success) {
-        localStorage.setItem('sesion_biomedica_st', data.sessionToken);
+        sessionStorage.setItem('sesion_biomedica_st', data.sessionToken); 
         setAutenticado(true);
         setCodigoInput('');
         setErrorAuth('');
@@ -124,7 +124,7 @@ export default function App() {
   };
 
   const cerrarSesion = () => {
-    localStorage.removeItem('sesion_biomedica_st');
+    sessionStorage.removeItem('sesion_biomedica_st');
     setAutenticado(false);
     setPasoAuth(1);
   };
@@ -369,7 +369,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.4 "Deudas v1"
+            rattamayhorka v0.8.5 "sessionToken"
           </div>
         </div>
       </div>
