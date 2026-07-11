@@ -77,7 +77,7 @@ export default function Proyectos() {
     try {
       await database.guardarDatos('modificarProyecto', { 
         tareaOriginal: textoOriginalCelda, 
-        nuevaTarea: textoAcuerdoEditated || textoAcuerdoEditado, 
+        nuevaTarea: textoAcuerdoEditado, 
         nuevoStatus: nuevoStatus
       });
     } catch (error) {

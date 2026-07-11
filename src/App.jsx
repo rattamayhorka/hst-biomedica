@@ -278,6 +278,7 @@ export default function App() {
               Familia
             </div>
 
+            {/*
             <button 
               onClick={() => cambiarSeccion('casa_pendientes')}  
               title="Kanban Casa"
@@ -290,6 +291,7 @@ export default function App() {
               <Home className="w-4 h-4 flex-shrink-0 xl:hidden" />
               <span className="hidden xl:inline px-1">Kanban Casa</span>
             </button>
+            */}
 
             <button 
               onClick={() => cambiarSeccion('casa_reuniones')}  
@@ -369,7 +371,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.5 "sessionToken"
+            rattamayhorka v0.8.7 "editated"
           </div>
         </div>
       </div>
