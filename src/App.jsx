@@ -371,7 +371,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.7 "editated"
+            rattamayhorka v0.8.8 "kanban multicolor"
           </div>
         </div>
       </div>
