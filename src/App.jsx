@@ -230,14 +230,14 @@ export default function App() {
             </button>
 
             <button 
-              onClick={() => cambiarSeccion('gases')} 
-              title="Control de Gases"
+              onClick={() => cambiarSeccion('futureloghst')} 
+              title="Future LOG Trabajo"
               className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+                seccionActiva === 'futureloghst' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
-              <Activity className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1">Control de Gases</span>
+              <Calendar className="w-4 h-4 flex-shrink-0 xl:hidden" />
+              <span className="hidden xl:inline px-1">Future LOG</span>
             </button>
 
             <button 
@@ -261,37 +261,22 @@ export default function App() {
               <ShoppingCart className="w-4 h-4 flex-shrink-0 xl:hidden" />
               <span className="hidden xl:inline px-1">Compras</span>
             </button>
-  
+            
             <button 
-              onClick={() => cambiarSeccion('futureloghst')} 
-              title="Future LOG Trabajo"
+              onClick={() => cambiarSeccion('gases')} 
+              title="Control de Gases"
               className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'futureloghst' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+                seccionActiva === 'gases' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
               }`}
             >
-              <Calendar className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1">Future LOG</span>
+              <Activity className="w-4 h-4 flex-shrink-0 xl:hidden" />
+              <span className="hidden xl:inline px-1">Control de Gases</span>
             </button>
 
             {/* Sección Familia */}
             <div className="hidden xl:block text-[11px] font-black text-amber-400 uppercase tracking-widest px-3 mb-1 mt-6">
               Familia
             </div>
-
-            {/*
-            <button 
-              onClick={() => cambiarSeccion('casa_pendientes')}  
-              title="Kanban Casa"
-              className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'casa_pendientes' 
-                  ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
-                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
-              }`}
-            >
-              <Home className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1">Kanban Casa</span>
-            </button>
-            */}
 
             <button 
               onClick={() => cambiarSeccion('casa_reuniones')}  
@@ -371,12 +356,54 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.8 "kanban multicolor"
+            rattamayhorka v0.8.11 "sync button"
           </div>
         </div>
       </div>
 
       {/* CONTENEDOR DE TRABAJO */}
+      <main className="flex-1 overflow-y-auto p-4 xl:p-8 bg-[#0f172a]">
+        <div id="contenedor-principal">
+          {seccionActiva === 'kanban' && (
+            <Kanban 
+              key={refreshKeys['kanban'] || 0} 
+              filtroTipo="Trabajo" 
+            />
+          )}
+          {seccionActiva === 'casa_pendientes' && (
+            <Kanban 
+              key={refreshKeys['casa_pendientes'] || 0} 
+              filtroTipo="Casa" 
+            />
+          )}
+          {seccionActiva === 'gases' && (
+            <Gases key={refreshKeys['gases'] || 0} />
+          )}
+          {seccionActiva === 'compromisos' && (
+            <Compromisos key={refreshKeys['compromisos'] || 0} />
+          )}
+          {seccionActiva === 'compras' && (
+            <Compras key={refreshKeys['compras'] || 0} />
+          )}
+          {seccionActiva === 'futureloghst' && (
+            <FutureLogHST key={refreshKeys['futureloghst'] || 0} />
+          )}
+          {seccionActiva === 'proyectos_grafo' && (
+            <GestionProyectos key={refreshKeys['proyectos_grafo'] || 0} />
+          )}
+          {seccionActiva === 'casa_reuniones' && (
+            <ReunionesCasa key={refreshKeys['casa_reuniones'] || 0} />
+          )}
+          {seccionActiva === 'casa_gastos' && (
+            <GastosCasa key={refreshKeys['casa_gastos'] || 0} />
+          )}
+          {seccionActiva === 'deudas' && (
+            <Deudas key={refreshKeys['deudas'] || 0} />
+          )}  
+        </div>
+      </main>
+
+      {/*
       <main className="flex-1 overflow-y-auto p-4 xl:p-8 bg-[#0f172a]">
         <div id="contenedor-principal">
           {seccionActiva === 'kanban' && <Kanban filtroTipo="Trabajo" refreshTrigger={refreshKeys['kanban']} />}
@@ -391,6 +418,7 @@ export default function App() {
           {seccionActiva === 'deudas' && <Deudas refreshTrigger={refreshKeys['deudas']} />}  
         </div>
       </main>
+      */}
     </div>
   );
 }
