@@ -140,7 +140,7 @@ export default function App() {
           <h2 className="text-xl font-black uppercase italic tracking-tighter text-[#f8fafc] mb-1">
             {pasoAuth === 1 ? 'Mandar Token' : 'Verificación 2FA'}
           </h2>
-          <p className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-widest mb-6">Control de Operaciones | Hospital Santo Tomás</p>
+          <p className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-widest mb-6">rattamayhorka.app</p>
           
           {errorAuth && (
             <p className="text-[10px] font-black text-rose-400 uppercase italic text-center tracking-tight mb-4 bg-rose-950/30 p-2 rounded-xl border border-rose-900/30">
