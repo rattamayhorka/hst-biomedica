@@ -432,7 +432,9 @@ export default function Kanban({ refreshTrigger }) {
                 <option value="Por Hacer">Por Hacer</option>
                 <option value="En Proceso">En Proceso</option>
                 <option value="Hecho">Hecho</option>
+                <option value="Bullet">Bullet</option>
                 <option value="Programado">Pausar (Snooze)</option>
+
               </select>
 
               {editStatus === 'Programado' && (

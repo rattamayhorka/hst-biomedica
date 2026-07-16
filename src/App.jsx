@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Kanban from './components/Kanban';
-//import Equipos from './components/Equipos';
+import Bullet from './components/Bullet';
 import Gases from './components/Gases';
 import Compromisos from './components/CompromisosHST';
 import Compras from './components/Compras';
@@ -219,6 +219,17 @@ export default function App() {
             </div>
 
             <button 
+              onClick={() => cambiarSeccion('bullet')} 
+              title="Bullet"
+              className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
+                seccionActiva === 'bullet' ? 'bg-[#0c4a6e] text-[#38bdf8]' : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
+              }`}
+            >
+              <Wrench className="w-4 h-4 flex-shrink-0 xl:hidden" /> 
+              <span className="hidden xl:inline px-1">Bullet</span>
+            </button>
+
+            <button 
               onClick={() => cambiarSeccion('kanban')} 
               title="Kanban Trabajo"
               className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
@@ -356,7 +367,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.11 "sync button"
+            rattamayhorka v0.8.12 "bullet terminal"
           </div>
         </div>
       </div>
@@ -370,12 +381,17 @@ export default function App() {
               filtroTipo="Trabajo" 
             />
           )}
+
           {seccionActiva === 'casa_pendientes' && (
             <Kanban 
               key={refreshKeys['casa_pendientes'] || 0} 
               filtroTipo="Casa" 
             />
           )}
+          {seccionActiva === 'bullet' && (
+            <Bullet key={refreshKeys['bullet'] || 0} />
+          )}
+          
           {seccionActiva === 'gases' && (
             <Gases key={refreshKeys['gases'] || 0} />
           )}
