@@ -29,15 +29,23 @@ export default function Deudas({ refreshTrigger }) {
   }, [refreshTrigger]);
 
   if (cargando) {
-    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Refrescando nodos de balance bursátil...</p>;
+    return <p className="text-xs font-black uppercase tracking-wider text-slate-500 animate-pulse text-left p-4">Actualizando...</p>;
   }
 
   const limpiarMonto = (valorCrudo) => {
-    if (!valorCrudo) return 0;
+    if (valorCrudo === null || valorCrudo === undefined) return 0;
+  
+    // Si ya es un número, solo asegúrate de que no sea negativo para la gráfica
     if (typeof valorCrudo === 'number') return Math.abs(valorCrudo);
-    const textoLimpio = valorCrudo.toString().replace(/[$,\s\-(),]/g, '');
-    return Math.abs(parseFloat(textoLimpio)) || 0;
+  
+    // Si es un string, remover todo lo que no sean números o puntos decimales
+    // Esto evita que textos pegados en la celda arruinen el parseFloat
+    const stringLimpio = valorCrudo.toString().replace(/[^0-9.]/g, '');
+  
+    const numero = parseFloat(stringLimpio);
+    return isNaN(numero) ? 0 : Math.abs(numero);
   };
+
 
   const deudasVigentes = deudas.filter(d => d.Status?.toUpperCase() !== 'LIQUIDADO');
   const totalDeudaActual = deudasVigentes.reduce((acc, curr) => acc + limpiarMonto(curr.Deuda_Total), 0);
@@ -70,24 +78,41 @@ export default function Deudas({ refreshTrigger }) {
       montoPagoReal: 0
     });
 
-    // Inserción de abonos reales mapeando su impacto
+    const abonosAgrupados = [];
     abonosReales.forEach((abono) => {
+      const existe = abonosAgrupados.find(a => a.fecha === abono.fecha);
+      if (existe) {
+        existe.monto += abono.monto; 
+      } else {
+        abonosAgrupados.push({ ...abono }); 
+      }
+    });
+
+    abonosAgrupados.forEach((abono) => {
       saldoFlujoReal = Math.max(actual, saldoFlujoReal - abono.monto);
       dataPuntos.push({
         name: abono.fecha,
         'Historial Real': saldoFlujoReal,
         'Proyección Proporcionada': null,
-        montoPagoReal: abono.monto // Guardamos el valor nativo del abono para el Tooltip
+        montoPagoReal: abono.monto
       });
     });
 
-    // Punto del corte presente
-    dataPuntos.push({
-      name: 'Actual',
-      'Historial Real': actual,
-      'Proyección Proporcionada': actual,
-      montoPagoReal: 0
-    });
+    if (abonosAgrupados.length === 0) {
+      // Si no hay abonos en el historial, necesitamos el punto 'Actual' para pintar la gráfica inicial
+      dataPuntos.push({
+        name: 'Actual',
+        'Historial Real': actual,
+        'Proyección Proporcionada': actual,
+        montoPagoReal: 0
+      });
+    } else {
+      // Si hay abonos, el último abono ya contiene matemáticamente el saldo impactado.
+      // Hacemos que este último punto sirva como puente directo para enlazar la Proyección.
+      const ultimoPunto = dataPuntos[dataPuntos.length - 1];
+      ultimoPunto['Proyección Proporcionada'] = saldoFlujoReal;
+    }
+    // ==========================================
 
     const pagoPromedio = abonosReales.length > 0 
       ? abonosReales.reduce((acc, curr) => acc + curr.monto, 0) / abonosReales.length 
@@ -115,11 +140,9 @@ export default function Deudas({ refreshTrigger }) {
     return `$${tick}`;
   };
 
-  // Componente interno para renderizar el Tooltip con la estructura solicitada
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dataNode = payload[0].payload;
-      // Evaluamos si es punto real o proyectado
       const balanceActual = dataNode['Historial Real'] !== null ? dataNode['Historial Real'] : dataNode['Proyección Proporcionada'];
       const abonoEfectuado = dataNode.montoPagoReal || 0;
 
@@ -227,10 +250,8 @@ export default function Deudas({ refreshTrigger }) {
                       tickFormatter={formatearEjeY}
                     />
                     
-                    {/* Tooltip personalizado inyectado */}
                     <Tooltip content={<CustomTooltip />} />
                     
-                    {/* Línea e Historial sólido (Sin LabelList estático) */}
                     <Area
                       type="monotone"
                       dataKey="Historial Real"
@@ -243,7 +264,6 @@ export default function Deudas({ refreshTrigger }) {
                       activeDot={{ r: 7, fill: '#34d399' }}
                     />
 
-                    {/* Proyección Simulada */}
                     <Line
                       type="monotone"
                       dataKey="Proyección Proporcionada"

@@ -81,7 +81,7 @@ export default function Kanban({ refreshTrigger }) {
   const [cargando, setCargando] = useState(true);
   
   // 🎯 NUEVO ESTADO: Filtro superior (Todos, Trabajo, Casa)
-  const [filtoEntorno, setFiltroEntorno] = useState('Todos');
+  const [filtoEntorno, setFiltroEntorno] = useState('Trabajo');
 
   // Modales
   const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
