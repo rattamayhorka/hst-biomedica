@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react';
 import { database } from '../api';
-import { X, Calendar, MapPin, Clock, Trash2 } from 'lucide-react';
+import { X, Calendar, MapPin, Clock, Trash2, Filter } from 'lucide-react';
 
 export default function Reuniones() {
   const [reuniones, setReuniones] = useState([]);
   const [cargando, setCargando] = useState(true);
   
+  // Estado para controlar el filtro Casa / Trabajo / Todos
+  const [filtroTipo, setFiltroTipo] = useState('Todos');
+
   // Modales y Formulario
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalEliminar, setModalEliminar] = useState(false);
   const [reunionSeleccionada, setReunionSeleccionada] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  
   const [formData, setFormData] = useState({
     comite: '',
     fecha: '',
     hora: '',
-    lugar: ''
+    lugar: '',
+    tipo: 'Trabajo'
   });
 
   const parseFecha = (str) => {
@@ -46,22 +51,24 @@ export default function Reuniones() {
 
     setGuardando(true);
     const fechaFormateada = formData.fecha.split('-').reverse().join('/');
+    
     const payload = {
       comite: formData.comite,
       fecha: fechaFormateada,
       hora: formData.hora,
-      lugar: formData.lugar
+      lugar: formData.lugar,
+      tipo: formData.tipo
     };
 
     await database.guardarDatos('guardarReunion', { datos: payload });
 
-    setFormData({ comite: '', fecha: '', hora: '', lugar: '' });
+    setFormData({ comite: '', fecha: '', hora: '', lugar: '', tipo: 'Trabajo' });
+    
     setModalAbierto(false);
     setGuardando(false);
     cargarReuniones();
   };
 
-  // FUNCIÓN CLAVE: Ejecuta la baja en caliente
   const ejecutarEliminarReunion = async () => {
     if (!reunionSeleccionada) return;
     setGuardando(true);
@@ -107,6 +114,13 @@ export default function Reuniones() {
 
   const pendientesCronograma = reuniones.filter(item => {
     if (item.Status === "Concluido" || !item['Comité / Evento']) return false;
+    
+    // Filtro por tipo
+    if (filtroTipo !== 'Todos') {
+      const tipoItem = (item.Tipo || 'Trabajo').toString().trim().toUpperCase();
+      if (tipoItem !== filtroTipo.toUpperCase()) return false;
+    }
+
     const fechaObj = parseFecha(item.Fecha);
     return fechaObj >= hoy && fechaObj <= fechaLimite;
   });
@@ -114,6 +128,10 @@ export default function Reuniones() {
   let eventosHoy = 0;
   reuniones.forEach(item => {
     if (item.Status !== "Concluido" && item['Comité / Evento']) {
+      if (filtroTipo !== 'Todos') {
+        const tipoItem = (item.Tipo || 'Trabajo').toString().trim().toUpperCase();
+        if (tipoItem !== filtroTipo.toUpperCase()) return;
+      }
       const fechaObj = parseFecha(item.Fecha);
       if (fechaObj.getTime() === hoy.getTime()) {
         eventosHoy++;
@@ -134,12 +152,36 @@ export default function Reuniones() {
     <div className="space-y-8 text-left">
       
       {/* Encabezado */}
-      <div className="mb-8 border-b border-zinc-800 pb-4 flex justify-between items-end">
+      <div className="mb-8 border-b border-zinc-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h2 className="text-2xl font-black text-blue-400 tracking-tighter uppercase italic">Future LOG</h2>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Cronograma de eventos - Trabajo</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">
+            Cronograma de eventos — {filtroTipo}
+          </p>
         </div>
-        <div className="flex gap-4">
+
+        {/* CONTROLES Y FILTRO EN LA PARTE SUPERIOR */}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          
+          {/* BARRA DE FILTROS CASA / TRABAJO / TODOS */}
+          <div className="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center gap-1">
+            <Filter className="w-3.5 h-3.5 text-zinc-500 ml-2 mr-1" />
+            {['Todos', 'Casa', 'Trabajo'].map(tipo => (
+              <button
+                key={tipo}
+                type="button"
+                onClick={() => setFiltroTipo(tipo)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  filtroTipo === tipo
+                    ? 'bg-sky-400 text-slate-950 shadow'
+                    : 'text-zinc-400 hover:text-slate-200 hover:bg-zinc-900'
+                }`}
+              >
+                {tipo}
+              </button>
+            ))}
+          </div>
+
           <button 
             onClick={() => setModalAbierto(true)} 
             className="bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 rounded-lg shadow-lg flex items-center text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
@@ -185,30 +227,64 @@ export default function Reuniones() {
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {items.map((item, idx) => (
+                  {items.map((item, idx) => {
+                    const esCasa = (item.Tipo || 'Trabajo').toString().toUpperCase() === 'CASA';
+
+                    /* CÓDIGO ANTERIOR:
                     <div 
                       key={idx} 
                       onClick={() => abrirConfirmacionEliminar(item)}
                       className="bg-zinc-900/40 border border-zinc-800 p-5 rounded-xl shadow-sm flex flex-col justify-between cursor-pointer group hover:border-red-900/60 transition-all duration-200"
                     >
                       <div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[9px] font-black text-sky-400 uppercase italic bg-sky-950/40 px-2 py-0.5 rounded border border-sky-900/30 w-fit flex items-center gap-1">
-                            <Clock className="w-2.5 h-2.5" /> {item.Hora}
-                          </span>
-                          {/* Icono discreto de basura que se prende al hacer hover en la tarjeta */}
-                          <Trash2 className="w-3.5 h-3.5 text-zinc-650 group-hover:text-red-400 transition-colors" />
+                        <div className="flex justify-between items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-black text-sky-400 uppercase italic bg-sky-950/40 px-2 py-0.5 rounded border border-sky-900/30 w-fit flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" /> {item.Hora}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ...`}>
+                              {item.Tipo || 'Trabajo'}
+                            </span>
+                          </div>
+                          <Trash2 className="..." />
                         </div>
-                        <h4 className="text-sm font-black text-slate-200 uppercase mt-3 mb-4 tracking-tight leading-snug">
-                          {item['Comité / Evento']}
-                        </h4>
+                    */
+
+                    // MODIFICACIÓN: Color de fondo y borde adaptado al tipo (Casa: Emerald / Trabajo: Zinc-Slate)
+                    const estiloTarjeta = esCasa
+                      ? "bg-emerald-950/20 border-emerald-900/50 hover:border-emerald-700/80"
+                      : "bg-zinc-900/40 border-zinc-800 hover:border-red-900/60";
+
+                    const estiloHora = esCasa
+                      ? "text-emerald-400 bg-emerald-950/60 border-emerald-900/40"
+                      : "text-sky-400 bg-sky-950/40 border-sky-900/30";
+
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => abrirConfirmacionEliminar(item)}
+                        className={`${estiloTarjeta} p-5 rounded-xl shadow-sm flex flex-col justify-between cursor-pointer group transition-all duration-200 border`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className={`text-[9px] font-black uppercase italic px-2 py-0.5 rounded border w-fit flex items-center gap-1 ${estiloHora}`}>
+                              <Clock className="w-2.5 h-2.5" /> {item.Hora}
+                            </span>
+                            
+                            {/* Icono discreto de basura que se prende al hacer hover en la tarjeta */}
+                            <Trash2 className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400 transition-colors" />
+                          </div>
+                          <h4 className="text-sm font-black text-slate-200 uppercase mt-3 mb-4 tracking-tight leading-snug">
+                            {item['Comité / Evento']}
+                          </h4>
+                        </div>
+                        <div className="flex items-center text-zinc-400 font-bold italic border-t border-zinc-800/60 pt-3 text-[9px] uppercase tracking-tighter">
+                          <MapPin className="w-3 h-3 text-zinc-500 mr-1.5 flex-shrink-0" />
+                          <span className="truncate">{item['Lugar / Link']}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center text-zinc-400 font-bold italic border-t border-zinc-800/60 pt-3 text-[9px] uppercase tracking-tighter">
-                        <MapPin className="w-3 h-3 text-zinc-500 mr-1.5 flex-shrink-0" />
-                        <span className="truncate">{item['Lugar / Link']}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -229,6 +305,28 @@ export default function Reuniones() {
               <button onClick={() => setModalAbierto(false)} className="cursor-pointer text-zinc-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={ejecutarGuardarReunion} className="p-6 space-y-4">
+              
+              {/* Selección Tipo (Casa / Trabajo) */}
+              <div>
+                <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Tipo de Evento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Trabajo', 'Casa'].map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, tipo: t }))}
+                      className={`py-2 rounded-lg text-xs font-black uppercase transition-all border cursor-pointer ${
+                        formData.tipo === t
+                          ? 'bg-sky-400 text-slate-950 border-sky-400'
+                          : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-slate-200'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[9px] font-black uppercase text-zinc-400 mb-1">Nombre del Comité / Evento</label>
                 <input type="text" name="comite" required value={formData.comite} onChange={manejarCambioInput} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-slate-200 focus:border-sky-400 outline-none uppercase font-bold" />

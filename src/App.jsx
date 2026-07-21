@@ -9,7 +9,7 @@ import RegistroRapido from './components/RegistroRapido';
 import GestionProyectos from './components/GestionProyectos';
 import GastosCasa from './components/GastosCasa';
 import Deudas from './components/Deudas';
-import ReunionesCasa from './components/ReunionesCasa';
+//import ReunionesCasa from './components/ReunionesCasa';
 
 // 🛠️ Agregamos los iconos necesarios para el menú compacto
 import {
@@ -208,16 +208,12 @@ export default function App() {
         <div className="flex flex-col h-dvh overflow-hidden">
           {/* Título adaptable (Fijo arriba) */}
           <div className="hidden xl:block p-6 font-black text-[#38bdf8] border-b border-[#334155] italic uppercase tracking-tighter text-xl flex-shrink-0">
-            Control Panel
+            Enfoque
           </div>
 
           {/* 🛠️ NAV CON SCROLL INTERNO */}
           <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2 min-h-0 custom-scrollbar">
-            {/* Sección Trabajo */}
-            <div className="hidden xl:block text-[11px] font-black text-[#38bdf8] uppercase tracking-widest px-3 mb-1 mt-2">
-              Trabajo
-            </div>
-
+            
             <button 
               onClick={() => cambiarSeccion('bullet')} 
               title="Bullet"
@@ -250,6 +246,11 @@ export default function App() {
               <Calendar className="w-4 h-4 flex-shrink-0 xl:hidden" />
               <span className="hidden xl:inline px-1">Future LOG</span>
             </button>
+
+            {/* Sección Trabajo */}
+            <div className="hidden xl:block text-[11px] font-black text-[#38bdf8] uppercase tracking-widest px-3 mb-1 mt-6">
+              Trabajo
+            </div>
 
             <button 
               onClick={() => cambiarSeccion('compromisos')} 
@@ -288,19 +289,6 @@ export default function App() {
             <div className="hidden xl:block text-[11px] font-black text-amber-400 uppercase tracking-widest px-3 mb-1 mt-6">
               Familia
             </div>
-
-            <button 
-              onClick={() => cambiarSeccion('casa_reuniones')}  
-              title="Future LOG Casa"
-              className={`w-full flex items-center justify-center xl:justify-start gap-3 p-3 rounded-xl font-bold uppercase text-[11px] transition-all tracking-wider cursor-pointer ${
-                seccionActiva === 'casa_reuniones' 
-                  ? 'bg-amber-950/40 text-amber-400 border border-amber-900/40' 
-                  : 'text-[#94a3b8] hover:bg-[#334155] hover:text-[#f8fafc]'
-              }`}
-            >
-              <Calendar className="w-4 h-4 flex-shrink-0 xl:hidden" />
-              <span className="hidden xl:inline px-1">Future LOG</span>
-            </button>
 
             <button 
               onClick={() => cambiarSeccion('casa_gastos')}  
@@ -367,7 +355,7 @@ export default function App() {
           </button>
           
           <div className="hidden xl:block text-center text-[9px] font-bold text-[#94a3b8] tracking-widest mt-1">
-            rattamayhorka v0.8.13 "presupuesto"
+            rattamayhorka v0.8.14 "unified futureLOG"
           </div>
         </div>
       </div>
@@ -407,9 +395,11 @@ export default function App() {
           {seccionActiva === 'proyectos_grafo' && (
             <GestionProyectos key={refreshKeys['proyectos_grafo'] || 0} />
           )}
+          {/*
           {seccionActiva === 'casa_reuniones' && (
             <ReunionesCasa key={refreshKeys['casa_reuniones'] || 0} />
           )}
+          */}
           {seccionActiva === 'casa_gastos' && (
             <GastosCasa key={refreshKeys['casa_gastos'] || 0} />
           )}
